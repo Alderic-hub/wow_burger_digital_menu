@@ -1,0 +1,6 @@
+{
+  "name": "WOW Burger Digital Menu",
+  "description": "A high-end, mobile-first TikTok-style vertical scrolling digital menu for WoW Burger with category filters, glassmorphism overlays, and full interactive item details.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
