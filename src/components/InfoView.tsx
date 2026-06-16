@@ -2,14 +2,16 @@ import { Clock, Phone, Mail, MapPin, Sparkles, Instagram, Facebook, Send, Flame,
 import { motion } from "motion/react";
 // @ts-ignore
 import wowBurgerLogo from "../assets/images/wow_burger_logo_1781154696795.png";
+import { RestaurantInfo } from "../types";
 
 const bannerImage = "https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=1200&q=80";
 
 interface InfoViewProps {
   isVisible: boolean;
+  info: RestaurantInfo;
 }
 
-export default function InfoView({ isVisible }: InfoViewProps) {
+export default function InfoView({ isVisible, info }: InfoViewProps) {
   if (!isVisible) return null;
 
   return (
@@ -80,7 +82,7 @@ export default function InfoView({ isVisible }: InfoViewProps) {
               </h3>
             </div>
             <p className="text-xs text-zinc-200 leading-relaxed font-light bg-gradient-to-br from-zinc-900 to-black border border-brand-yellow/15 rounded-2xl p-4 shadow-md animate-fade-in">
-              WOW Burger represents Addis Ababa's premier culinary destination, serving up freshly handcrafted certified black angus beef burgers, high-heat wood-fired artisanal pizzas, and refreshing natural botanical juices crafted entirely in-house.
+              {info.mission}
             </p>
           </div>
 
@@ -101,19 +103,19 @@ export default function InfoView({ isVisible }: InfoViewProps) {
               <div className="space-y-4 text-xs text-zinc-200 leading-relaxed font-light relative z-10">
                 <div>
                   <p>
-                    Founded with a singular mission to <strong className="text-brand-yellow font-bold">revolutionize Addis Ababa's fast-casual sector</strong>, Chef Michael set out to combine traditional European wood-firing methods with vibrant, premium farm-to-table local ingredients.
+                    {info.journeyFounder}
                   </p>
                 </div>
                 <div className="h-[1px] bg-white/[0.06]" />
                 <div>
                   <p>
-                    We don't use shortcut freezers or pre-assembled elements. Every sauce is whisked fresh daily, every ingredient is selected by hand, and every slice tells a story of dedicated kitchen discipline.
+                    {info.journeyQuality}
                   </p>
                 </div>
                 <div className="h-[1px] bg-white/[0.06]" />
                 <div>
                   <p>
-                    Every soft brioche bun is baked fresh at sunrise, every single patty is hand-ground, and our signature slow-fermented pizza dough cold-cures for 48 hours to create the light, airy wood-char crust we are loved for.
+                    {info.journeyDough}
                   </p>
                 </div>
               </div>
@@ -134,14 +136,14 @@ export default function InfoView({ isVisible }: InfoViewProps) {
             <div className="bg-gradient-to-r from-zinc-950 to-zinc-900 border border-brand-yellow/20 rounded-2xl p-4 space-y-3">
               <div className="flex justify-between items-center text-xs">
                 <span className="text-zinc-400 font-medium">Regular Days (Mon - Sun)</span>
-                <span className="font-extrabold text-white">11:00 AM - 11:30 PM</span>
+                <span className="font-extrabold text-white font-mono">{info.openingHours}</span>
               </div>
               <div className="h-[1px] bg-white/[0.06]" />
               <div className="flex justify-between items-center text-xs">
                 <span className="text-zinc-400 font-medium">Kitchen Last Order</span>
-                <span className="font-extrabold text-brand-yellow flex items-center gap-1.5">
+                <span className="font-extrabold text-brand-yellow flex items-center gap-1.5 font-mono">
                   <span className="w-1.5 h-1.5 rounded-full bg-brand-yellow animate-ping" />
-                  11:00 PM
+                  {info.kitchenLastOrder}
                 </span>
               </div>
             </div>
@@ -157,10 +159,10 @@ export default function InfoView({ isVisible }: InfoViewProps) {
             </div>
             <div className="bg-gradient-to-br from-zinc-950 to-neutral-900 border border-brand-red/15 rounded-2xl p-4 space-y-1">
               <p className="text-xs text-white font-extrabold flex items-center gap-1">
-                <span>📍 Bole Road Branch</span>
+                <span>📍 {info.locationName}</span>
               </p>
               <p className="text-xs text-zinc-300 leading-relaxed font-light">
-                Bole Main Boulevard, Behind Edna Mall Complex, Addis Ababa, Ethiopia
+                {info.locationAddress}
               </p>
             </div>
           </div>
@@ -180,8 +182,8 @@ export default function InfoView({ isVisible }: InfoViewProps) {
                 </div>
                 <div>
                   <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Phone Reservation</p>
-                  <a href="tel:+251911000000" className="text-xs font-black text-white hover:text-brand-yellow transition-colors">
-                    +251 911 000 000
+                  <a href={`tel:${info.phone}`} className="text-xs font-black text-white hover:text-brand-yellow transition-colors font-mono">
+                    {info.phone}
                   </a>
                 </div>
               </div>
@@ -192,8 +194,8 @@ export default function InfoView({ isVisible }: InfoViewProps) {
                 </div>
                 <div>
                   <p className="text-[10px] text-zinc-500 uppercase tracking-wider">Corporate Email</p>
-                  <a href="mailto:contact@wowburger.et" className="text-xs font-black text-white hover:text-brand-red transition-colors">
-                    contact@wowburger.et
+                  <a href={`mailto:${info.email}`} className="text-xs font-black text-white hover:text-brand-red transition-colors font-mono">
+                    {info.email}
                   </a>
                 </div>
               </div>
@@ -207,7 +209,7 @@ export default function InfoView({ isVisible }: InfoViewProps) {
             </h3>
             <div className="grid grid-cols-2 gap-2">
               <a
-                href="https://instagram.com"
+                href={info.instagram}
                 target="_blank"
                 rel="noreferrer"
                 className="bg-white/[0.02] border border-white/[0.04] hover:border-brand-yellow/30 p-3 rounded-xl flex items-center justify-center gap-1.5 text-xs text-zinc-350 hover:text-white transition-all cursor-pointer"
@@ -216,7 +218,7 @@ export default function InfoView({ isVisible }: InfoViewProps) {
                 <span className="font-bold">Instagram</span>
               </a>
               <a
-                href="https://facebook.com"
+                href={info.facebook}
                 target="_blank"
                 rel="noreferrer"
                 className="bg-white/[0.02] border border-white/[0.04] hover:border-brand-yellow/30 p-3 rounded-xl flex items-center justify-center gap-1.5 text-xs text-zinc-350 hover:text-white transition-all cursor-pointer"
@@ -225,7 +227,7 @@ export default function InfoView({ isVisible }: InfoViewProps) {
                 <span className="font-bold">Facebook</span>
               </a>
               <a
-                href="https://tiktok.com"
+                href={info.tiktok}
                 target="_blank"
                 rel="noreferrer"
                 className="bg-white/[0.02] border border-white/[0.04] hover:border-brand-yellow/30 p-3 rounded-xl flex items-center justify-center gap-1.5 text-xs text-zinc-350 hover:text-white transition-all cursor-pointer"
@@ -234,7 +236,7 @@ export default function InfoView({ isVisible }: InfoViewProps) {
                 <span className="font-bold">TikTok</span>
               </a>
               <a
-                href="https://t.me"
+                href={info.telegram}
                 target="_blank"
                 rel="noreferrer"
                 className="bg-white/[0.02] border border-white/[0.04] hover:border-brand-yellow/30 p-3 rounded-xl flex items-center justify-center gap-1.5 text-xs text-zinc-350 hover:text-white transition-all cursor-pointer"
@@ -245,7 +247,6 @@ export default function InfoView({ isVisible }: InfoViewProps) {
             </div>
           </div>
         </div>
-
       </div>
 
       {/* PREMIUM ATTRIBUTION DESIGN AT BOTTOM */}

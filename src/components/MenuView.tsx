@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { MenuItem, Category } from "../types";
-import { CATEGORIES } from "../menuData";
 import { ChevronDown, Heart, Star, Compass, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 interface MenuViewProps {
   menuItems: MenuItem[];
+  categories: Category[];
   favorites: string[];
   onToggleFavorite: (id: string) => void;
   onSelectItem: (item: MenuItem) => void;
@@ -24,6 +24,7 @@ const CATEGORY_SUBHEADINGS: Record<string, string> = {
 
 export default function MenuView({
   menuItems,
+  categories,
   favorites,
   onToggleFavorite,
   onSelectItem
@@ -56,7 +57,7 @@ export default function MenuView({
     const observer = new IntersectionObserver(handleIntersection, observerOptions);
 
     // Observe each category block
-    CATEGORIES.forEach((cat) => {
+    categories.forEach((cat) => {
       const el = sectionRefs.current[cat.id];
       if (el) observer.observe(el);
     });
@@ -66,7 +67,7 @@ export default function MenuView({
     return () => {
       observer.disconnect();
     };
-  }, [menuItems]);
+  }, [menuItems, categories]);
 
   const handleCategorySelect = (categoryId: string) => {
     const element = sectionRefs.current[categoryId];
@@ -86,7 +87,7 @@ export default function MenuView({
   };
 
   // Group all items by their category
-  const groupedItems = CATEGORIES.reduce<Record<string, MenuItem[]>>((acc, cat) => {
+  const groupedItems = categories.reduce<Record<string, MenuItem[]>>((acc, cat) => {
     acc[cat.id] = menuItems.filter((item) => item.category === cat.id);
     return acc;
   }, {});
@@ -110,7 +111,7 @@ export default function MenuView({
 
         {/* Widescreen Horizontal Pill List - Visible on md and up */}
         <div className="hidden md:flex flex-wrap items-center gap-1.5 max-w-full px-1 justify-end">
-          {CATEGORIES.map((cat) => {
+          {categories.map((cat) => {
             const isSel = activeCategory === cat.id;
             const count = groupedItems[cat.id]?.length || 0;
             if (count === 0) return null;
@@ -173,7 +174,7 @@ export default function MenuView({
         id="menu_scroll_container"
       >
         {/* Render grouped sections */}
-        {CATEGORIES.map((cat) => {
+        {categories.map((cat) => {
           const items = groupedItems[cat.id] || [];
           if (items.length === 0) return null;
 
@@ -365,7 +366,7 @@ export default function MenuView({
 
               {/* Scrollable list of categories */}
               <div className="overflow-y-auto px-4 py-2 space-y-1 pb-6 max-h-[300px]">
-                {CATEGORIES.map((cat) => {
+                {categories.map((cat) => {
                   const isSel = activeCategory === cat.id;
                   const count = groupedItems[cat.id]?.length || 0;
                   return (

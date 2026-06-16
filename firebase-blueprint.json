@@ -1,0 +1,72 @@
+{
+  "entities": {
+    "MenuItem": {
+      "title": "MenuItem",
+      "description": "A food item on the menu",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "ingredients": { "type": "string" },
+        "category": { "type": "string" },
+        "image": { "type": "string" },
+        "description": { "type": "string" },
+        "prepTime": { "type": "string" },
+        "calories": { "type": "string" },
+        "rating": { "type": "number" },
+        "isPopular": { "type": "boolean" },
+        "isChefPick": { "type": "boolean" },
+        "isFeatured": { "type": "boolean" }
+      },
+      "required": ["id", "name", "price", "category", "image"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Menu categories with custom icon and thumbnails",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" },
+        "iconName": { "type": "string" },
+        "thumbnail": { "type": "string" }
+      },
+      "required": ["id", "label"]
+    },
+    "RestaurantInfo": {
+      "title": "RestaurantInfo",
+      "description": "General restaurant details, contact info and sensory stories",
+      "type": "object",
+      "properties": {
+        "mission": { "type": "string" },
+        "journeyFounder": { "type": "string" },
+        "journeyQuality": { "type": "string" },
+        "journeyDough": { "type": "string" },
+        "openingHours": { "type": "string" },
+        "kitchenLastOrder": { "type": "string" },
+        "locationName": { "type": "string" },
+        "locationAddress": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "instagram": { "type": "string" },
+        "facebook": { "type": "string" },
+        "tiktok": { "type": "string" },
+        "telegram": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/menu": {
+      "schema": "MenuItem",
+      "description": "Interactive food menu catalog"
+    },
+    "/categories": {
+      "schema": "Category",
+      "description": "List of active food categories"
+    },
+    "/restaurant/info": {
+      "schema": "RestaurantInfo",
+      "description": "Restaurant profiling settings"
+    }
+  }
+}

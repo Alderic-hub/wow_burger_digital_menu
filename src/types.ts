@@ -20,3 +20,21 @@ export interface Category {
   iconName: string; // Lucide icon name to dynamically load
   thumbnail: string; // Photographic thumbnail URL representing the category foods
 }
+
+export interface RestaurantInfo {
+  mission: string;
+  journeyFounder: string;
+  journeyQuality: string;
+  journeyDough: string;
+  openingHours: string;
+  kitchenLastOrder: string;
+  locationName: string;
+  locationAddress: string;
+  phone: string;
+  email: string;
+  instagram: string;
+  facebook: string;
+  tiktok: string;
+  telegram: string;
+}
+
