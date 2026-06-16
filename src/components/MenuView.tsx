@@ -71,10 +71,14 @@ export default function MenuView({
   const handleCategorySelect = (categoryId: string) => {
     const element = sectionRefs.current[categoryId];
     if (element && containerRef.current) {
-      // Direct smooth scroll to the section inside our scroll container
-      element.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
+      const container = containerRef.current;
+      const containerTop = container.getBoundingClientRect().top;
+      const elementTop = element.getBoundingClientRect().top;
+      const scrollOffset = elementTop - containerTop;
+      
+      container.scrollTo({
+        top: container.scrollTop + scrollOffset - 6,
+        behavior: "smooth"
       });
       setActiveCategory(categoryId);
     }
@@ -104,17 +108,54 @@ export default function MenuView({
           </p>
         </div>
 
-        {/* Compact dropdown trigger selector */}
-        <button
-          onClick={() => setIsSelectorOpen(!isSelectorOpen)}
-          className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-white/[0.08] rounded-full px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition-all cursor-pointer active:scale-95"
-          id="category_selector_button"
-        >
-          <span className="text-[10px] tracking-wider text-brand-yellow font-black uppercase">
-            {activeCategory}
-          </span>
-          <ChevronDown className="w-3.5 h-3.5 text-zinc-400 stroke-[2.5]" />
-        </button>
+        {/* Widescreen Horizontal Pill List - Visible on md and up */}
+        <div className="hidden md:flex flex-wrap items-center gap-1.5 max-w-full px-1 justify-end">
+          {CATEGORIES.map((cat) => {
+            const isSel = activeCategory === cat.id;
+            const count = groupedItems[cat.id]?.length || 0;
+            if (count === 0) return null;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => handleCategorySelect(cat.id)}
+                className={`px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
+                  isSel 
+                    ? "bg-brand-yellow text-black shadow-md shadow-brand-yellow/15 scale-105" 
+                    : "bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                }`}
+              >
+                {cat.label}
+              </button>
+            );
+          })}
+          {favoriteItems.length > 0 && (
+            <button
+              onClick={() => handleCategorySelect("Favorites")}
+              className={`px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer flex items-center gap-1 ${
+                activeCategory === "Favorites"
+                  ? "bg-brand-red text-white shadow-md shadow-brand-red/15 scale-105"
+                  : "bg-brand-red/10 border border-brand-red/20 text-brand-red hover:bg-brand-red/20"
+              }`}
+            >
+              <Heart className="w-3 h-3 fill-current" />
+              <span>Saved</span>
+            </button>
+          )}
+        </div>
+
+        {/* Compact dropdown trigger selector - Visible only on mobile < md */}
+        <div className="md:hidden">
+          <button
+            onClick={() => setIsSelectorOpen(!isSelectorOpen)}
+            className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-white/[0.08] rounded-full px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition-all cursor-pointer active:scale-95"
+            id="category_selector_button"
+          >
+            <span className="text-[10px] tracking-wider text-brand-yellow font-black uppercase">
+              {activeCategory}
+            </span>
+            <ChevronDown className="w-3.5 h-3.5 text-zinc-400 stroke-[2.5]" />
+          </button>
+        </div>
       </div>
 
       {/* Floating Subtle Category Indicator at top-right of scrollable area */}
@@ -174,7 +215,7 @@ export default function MenuView({
               </div>
 
               {/* Grid of Image-First Cards */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {items.map((item) => {
                   const isFav = favorites.includes(item.id);
                   return (
@@ -250,7 +291,7 @@ export default function MenuView({
               <div className="w-12 h-[2px] bg-brand-yellow mx-auto mt-3.5 rounded-full" />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {favoriteItems.map((item) => (
                 <div
                   key={item.id}
