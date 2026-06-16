@@ -1,6 +1,6 @@
 import { Info, ArrowLeft } from "lucide-react";
-
-const wowBurgerLogo = "/src/assets/images/wow_burger_logo_1781154696795.png";
+// @ts-ignore
+import wowBurgerLogo from "../assets/images/wow_burger_logo_1781154696795.png";
 
 interface RestaurantHeaderProps {
   currentPage: "menu" | "info";

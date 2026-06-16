@@ -1,7 +1,8 @@
 import { Clock, Phone, Mail, MapPin, Sparkles, Instagram, Facebook, Send, Flame, Award, Heart, Utensils, Zap, Music } from "lucide-react";
 import { motion } from "motion/react";
+// @ts-ignore
+import wowBurgerLogo from "../assets/images/wow_burger_logo_1781154696795.png";
 
-const wowBurgerLogo = "/src/assets/images/wow_burger_logo_1781154696795.png";
 const bannerImage = "https://images.unsplash.com/photo-1586190848861-99aa4a171e90?auto=format&fit=crop&w=1200&q=80";
 
 interface InfoViewProps {
