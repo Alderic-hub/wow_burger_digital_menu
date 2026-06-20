@@ -18,7 +18,7 @@ interface AdminDashboardProps {
   onRefreshPublicData: () => void;
 }
 
-type TabType = "overview" | "categories" | "items" | "restaurant";
+type TabType = "overview" | "categories" | "items" | "restaurant" | "payments";
 
 export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabType>("overview");
@@ -274,6 +274,14 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
     triggerUpdate();
   };
 
+  const handleSaveBanks = (e: React.FormEvent) => {
+    e.preventDefault();
+    setRestaurantInfo(infoForm);
+    saveRestaurantInfo(infoForm);
+    alert("Bank Transfer Accounts & Wallets successfully updated!");
+    triggerUpdate();
+  };
+
   // Construct QR code address
   const publicMenuUrl = window.location.origin;
   const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(publicMenuUrl)}&color=ffc107&bgcolor=000000`;
@@ -325,6 +333,13 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
               <Info className="w-4 h-4" />
               <span>Restaurant Info</span>
             </button>
+            <button
+              onClick={() => { setActiveTab("payments"); setSelectedItem(null); setSelectedCategory(null); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${activeTab === "payments" ? "bg-brand-yellow text-black shadow-lg shadow-brand-yellow/10" : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"}`}
+            >
+              <DollarSign className="w-4 h-4" />
+              <span>Banking & Wallets</span>
+            </button>
           </nav>
         </div>
 
@@ -352,6 +367,7 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
               {activeTab === "categories" && "CATEGORY ARCHITECTURE"}
               {activeTab === "items" && "MENU ITEM CATALOG"}
               {activeTab === "restaurant" && "RESTAURANT PROFILE MANAGEMENT"}
+              {activeTab === "payments" && "BANKING & MOBILE WALLETS"}
             </h1>
           </div>
           <div className="flex items-center gap-2">
@@ -1155,7 +1171,7 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
                 />
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 font-mono">
                 <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Telegram Outreach</label>
                 <input
                   type="text"
@@ -1163,203 +1179,6 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
                   onChange={e => setInfoForm({ ...infoForm, telegram: e.target.value })}
                   className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow/30 font-mono"
                 />
-              </div>
-
-              {/* Bank Transfer Details Section */}
-              <div className="space-y-4 md:col-span-2 border-t border-white/[0.04] pt-6 mt-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="text-[11px] font-black uppercase tracking-widest text-brand-yellow font-mono flex items-center gap-1.5">
-                      <DollarSign className="w-3.5 h-3.5" />
-                      <span>Bank Transfer Accounts & Mobile Money</span>
-                    </span>
-                    <span className="text-[9px] text-zinc-500 mt-0.5">Configure bank accounts shown to customers on the digital menu.</span>
-                  </div>
-                  {editingBankId === null && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingBankId("new");
-                        setBankForm({ bankName: "", accountNumber: "", accountHolder: "WOW BURGER PLC", qrCodeUrl: "", isActive: true });
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-brand-yellow/10 border border-brand-yellow/20 text-brand-yellow text-[9px] font-black uppercase tracking-wider hover:bg-brand-yellow hover:text-black transition-all cursor-pointer flex items-center gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add Bank/Wallet</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Inline Bank Form if editing or adding */}
-                {editingBankId !== null && (
-                  <div className="bg-zinc-950 border border-brand-yellow/30 rounded-2xl p-5 space-y-4 shadow-xl">
-                    <div className="flex items-center justify-between border-b border-white/[0.04] pb-2.5 mb-2">
-                      <span className="text-[10px] font-black text-brand-yellow uppercase tracking-widest font-mono">
-                        {editingBankId === "new" ? "➕ Add New Transfer Option" : "✏️ Edit Bank Option"}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setEditingBankId(null)}
-                        className="text-zinc-500 hover:text-white transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Bank / Wallet Name</label>
-                        <input
-                          type="text"
-                          required
-                          value={bankForm.bankName}
-                          onChange={e => setBankForm({ ...bankForm, bankName: e.target.value })}
-                          placeholder="e.g. Commercial Bank of Ethiopia (CBE) or Telebirr"
-                          className="w-full bg-zinc-900 border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Account / Phone Number</label>
-                        <input
-                          type="text"
-                          required
-                          value={bankForm.accountNumber}
-                          onChange={e => setBankForm({ ...bankForm, accountNumber: e.target.value })}
-                          placeholder="e.g. 1000123456789 or 0911000000"
-                          className="w-full bg-zinc-900 border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-mono"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Account Holder Name</label>
-                        <input
-                          type="text"
-                          value={bankForm.accountHolder}
-                          onChange={e => setBankForm({ ...bankForm, accountHolder: e.target.value })}
-                          placeholder="e.g. WOW BURGER PLC"
-                          className="w-full bg-zinc-900 border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">QR Code Image URL (Optional)</label>
-                        <input
-                          type="text"
-                          value={bankForm.qrCodeUrl || ""}
-                          onChange={e => setBankForm({ ...bankForm, qrCodeUrl: e.target.value })}
-                          placeholder="e.g. https://domain.com/cbe-qr.png"
-                          className="w-full bg-zinc-900 border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-mono"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Bank logo Image URL (Optional)</label>
-                        <input
-                          type="text"
-                          value={bankForm.logoUrl || ""}
-                          onChange={e => setBankForm({ ...bankForm, logoUrl: e.target.value })}
-                          placeholder="e.g. https://domain.com/cbe-logo.png"
-                          className="w-full bg-zinc-900 border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-mono"
-                        />
-                      </div>
-
-                      <div className="flex items-center gap-2 sm:col-span-2 py-1">
-                        <input
-                          type="checkbox"
-                          id="bank_is_active"
-                          checked={bankForm.isActive !== false}
-                          onChange={e => setBankForm({ ...bankForm, isActive: e.target.checked })}
-                          className="rounded border-zinc-800 bg-zinc-900 text-brand-yellow focus:ring-brand-yellow/30"
-                        />
-                        <label htmlFor="bank_is_active" className="text-[10px] uppercase font-black text-zinc-300 select-none cursor-pointer">
-                          Active & Visible on Customer Menu
-                        </label>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end gap-2 pt-3 border-t border-white/[0.04]">
-                      <button
-                        type="button"
-                        onClick={() => setEditingBankId(null)}
-                        className="px-4 py-2 rounded-xl bg-zinc-900 border border-white/5 hover:bg-zinc-850 text-zinc-400 text-[10px] font-black uppercase tracking-wider"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSaveBank}
-                        className="px-5 py-2 rounded-xl bg-brand-yellow hover:bg-yellow-500 text-black text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
-                      >
-                        <Check className="w-3.5 h-3.5 stroke-[2.5]" />
-                        <span>Apply Account Specs</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Bank list display */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {(infoForm.bankAccounts && infoForm.bankAccounts.length > 0) ? (
-                    infoForm.bankAccounts.map((bank) => (
-                      <div
-                        key={bank.id}
-                        className={`p-4 border rounded-2xl flex flex-col justify-between gap-4 transition-all ${
-                          bank.isActive 
-                            ? "border-white/[0.08] bg-zinc-950/80 shadow-md shadow-black/50" 
-                            : "border-white/[0.02] opacity-50 bg-zinc-950/20"
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 w-8 h-8 rounded-full bg-brand-yellow/10 border border-brand-yellow/20 flex items-center justify-center shrink-0">
-                            <DollarSign className="w-4 h-4 text-brand-yellow" />
-                          </div>
-                          <div className="space-y-1 flex-1 min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h4 className="text-xs font-black text-white uppercase tracking-wide truncate">{bank.bankName}</h4>
-                              {bank.isActive ? (
-                                <span className="text-[7.5px] bg-green-500/10 text-green-400 border border-green-500/20 px-1 rounded uppercase tracking-widest font-black">Active</span>
-                              ) : (
-                                <span className="text-[7.5px] bg-zinc-850 text-zinc-500 px-1 rounded uppercase tracking-widest font-black">Hold</span>
-                              )}
-                            </div>
-                            <p className="text-[12px] font-mono font-black text-brand-yellow tracking-wider truncate">{bank.accountNumber}</p>
-                            {bank.accountHolder && (
-                              <p className="text-[8.5px] text-zinc-500 font-bold uppercase">Holder: {bank.accountHolder}</p>
-                            )}
-                            {bank.qrCodeUrl && (
-                              <p className="text-[8px] text-zinc-400 font-mono mt-1 opacity-75 truncate" title={bank.qrCodeUrl}>QR: {bank.qrCodeUrl}</p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 border-t border-white/[0.04] pt-2 justify-end">
-                          <button
-                            type="button"
-                            onClick={() => handleEditBankClick(bank)}
-                            className="p-1.5 bg-zinc-900 hover:bg-zinc-850 border border-white/5 hover:border-white/10 rounded-xl text-zinc-300 hover:text-white transition-all cursor-pointer"
-                            title="Edit bank specifications"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteBankClick(bank.id)}
-                            className="p-1.5 bg-brand-red/10 border border-brand-red/15 hover:bg-brand-red/15 rounded-xl text-brand-red transition-all cursor-pointer"
-                            title="Delete transfer system"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="h-24 flex flex-col items-center justify-center text-center rounded-2xl bg-zinc-950/40 border border-white/[0.04] sm:col-span-2">
-                      <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">No Bank Transfer Options Configured</p>
-                      <p className="text-[8px] text-zinc-600 mt-1">Click the button in the upper right to setup a CBE/Telebirr account.</p>
-                    </div>
-                  )}
-                </div>
               </div>
             </div>
 
@@ -1370,6 +1189,224 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
               >
                 <Save className="w-4 h-4" />
                 <span>Publish Profile Specs</span>
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Tab 5: BANKING & MOBILE MONEY SETUP */}
+        {activeTab === "payments" && (
+          <form onSubmit={handleSaveBanks} className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-black border border-white/[0.06] rounded-2xl p-6 space-y-5">
+            <h3 className="text-xs font-black uppercase tracking-wider text-brand-yellow border-b border-white/[0.06] pb-3">
+              BANK TRANSFER ACCOUNTS & MOBILE MONEY
+            </h3>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-[11px] font-black uppercase tracking-widest text-brand-yellow font-mono flex items-center gap-1.5">
+                    <DollarSign className="w-3.5 h-3.5" />
+                    <span>Bank Transfer Accounts & Mobile Money</span>
+                  </span>
+                  <span className="text-[9px] text-zinc-500 mt-0.5">Configure bank accounts shown to customers on the digital menu.</span>
+                </div>
+                {editingBankId === null && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingBankId("new");
+                      setBankForm({ bankName: "", accountNumber: "", accountHolder: "WOW BURGER PLC", qrCodeUrl: "", logoUrl: "", isActive: true });
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-brand-yellow/10 border border-brand-yellow/20 text-brand-yellow text-[9px] font-black uppercase tracking-wider hover:bg-brand-yellow hover:text-black transition-all cursor-pointer flex items-center gap-1"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Bank/Wallet</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Inline Bank Form if editing or adding */}
+              {editingBankId !== null && (
+                <div className="bg-zinc-950 border border-brand-yellow/30 rounded-2xl p-5 space-y-4 shadow-xl">
+                  <div className="flex items-center justify-between border-b border-white/[0.04] pb-2.5 mb-2">
+                    <span className="text-[10px] font-black text-brand-yellow uppercase tracking-widest font-mono">
+                      {editingBankId === "new" ? "➕ Add New Transfer Option" : "✏️ Edit Bank Option"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setEditingBankId(null)}
+                      className="text-zinc-500 hover:text-white transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Bank / Wallet Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={bankForm.bankName}
+                        onChange={e => setBankForm({ ...bankForm, bankName: e.target.value })}
+                        placeholder="e.g. Commercial Bank of Ethiopia (CBE) or Telebirr"
+                        className="w-full bg-zinc-900 border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Account / Phone Number</label>
+                      <input
+                        type="text"
+                        required
+                        value={bankForm.accountNumber}
+                        onChange={e => setBankForm({ ...bankForm, accountNumber: e.target.value })}
+                        placeholder="e.g. 1000123456789 or 0911000000"
+                        className="w-full bg-zinc-900 border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Account Holder Name</label>
+                      <input
+                        type="text"
+                        value={bankForm.accountHolder}
+                        onChange={e => setBankForm({ ...bankForm, accountHolder: e.target.value })}
+                        placeholder="e.g. WOW BURGER PLC"
+                        className="w-full bg-zinc-900 border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">QR Code Image URL (Optional)</label>
+                      <input
+                        type="text"
+                        value={bankForm.qrCodeUrl || ""}
+                        onChange={e => setBankForm({ ...bankForm, qrCodeUrl: e.target.value })}
+                        placeholder="e.g. https://domain.com/cbe-qr.png"
+                        className="w-full bg-zinc-900 border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Bank logo Image URL (Optional)</label>
+                      <input
+                        type="text"
+                        value={bankForm.logoUrl || ""}
+                        onChange={e => setBankForm({ ...bankForm, logoUrl: e.target.value })}
+                        placeholder="e.g. https://domain.com/cbe-logo.png"
+                        className="w-full bg-zinc-900 border border-white/[0.08] rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-mono"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 sm:col-span-2 py-1">
+                      <input
+                        type="checkbox"
+                        id="bank_is_active"
+                        checked={bankForm.isActive !== false}
+                        onChange={e => setBankForm({ ...bankForm, isActive: e.target.checked })}
+                        className="rounded border-zinc-800 bg-zinc-900 text-brand-yellow focus:ring-brand-yellow/30"
+                      />
+                      <label htmlFor="bank_is_active" className="text-[10px] uppercase font-black text-zinc-300 select-none cursor-pointer">
+                        Active & Visible on Customer Menu
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-3 border-t border-white/[0.04]">
+                    <button
+                      type="button"
+                      onClick={() => setEditingBankId(null)}
+                      className="px-4 py-2 rounded-xl bg-zinc-900 border border-white/5 hover:bg-zinc-850 text-zinc-400 text-[10px] font-black uppercase tracking-wider"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveBank}
+                      className="px-5 py-2 rounded-xl bg-brand-yellow hover:bg-yellow-500 text-black text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>Apply Account Specs</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Bank list display */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {(infoForm.bankAccounts && infoForm.bankAccounts.length > 0) ? (
+                  infoForm.bankAccounts.map((bank) => (
+                    <div
+                      key={bank.id}
+                      className={`p-4 border rounded-2xl flex flex-col justify-between gap-4 transition-all ${
+                        bank.isActive 
+                          ? "border-white/[0.08] bg-zinc-950/80 shadow-md shadow-black/50" 
+                          : "border-white/[0.02] opacity-50 bg-zinc-950/20"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 w-8 h-8 rounded-full bg-brand-yellow/10 border border-brand-yellow/20 flex items-center justify-center shrink-0">
+                          <DollarSign className="w-4 h-4 text-brand-yellow" />
+                        </div>
+                        <div className="space-y-1 flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-xs font-black text-white uppercase tracking-wide truncate">{bank.bankName}</h4>
+                            {bank.isActive ? (
+                              <span className="text-[7.5px] bg-green-500/10 text-green-400 border border-green-500/20 px-1 rounded uppercase tracking-widest font-black">Active</span>
+                            ) : (
+                              <span className="text-[7.5px] bg-zinc-850 text-zinc-500 px-1 rounded uppercase tracking-widest font-black">Hold</span>
+                            )}
+                          </div>
+                          <p className="text-[12px] font-mono font-black text-brand-yellow tracking-wider truncate">{bank.accountNumber}</p>
+                          {bank.accountHolder && (
+                            <p className="text-[8.5px] text-zinc-500 font-bold uppercase">Holder: {bank.accountHolder}</p>
+                          )}
+                          {bank.qrCodeUrl && (
+                            <p className="text-[8px] text-zinc-400 font-mono mt-1 opacity-75 truncate" title={bank.qrCodeUrl}>QR: {bank.qrCodeUrl}</p>
+                          )}
+                          {bank.logoUrl && (
+                            <p className="text-[8px] text-zinc-400 font-mono opacity-75 truncate" title={bank.logoUrl}>Logo: {bank.logoUrl}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 border-t border-white/[0.04] pt-2 justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleEditBankClick(bank)}
+                          className="p-1.5 bg-zinc-900 hover:bg-zinc-850 border border-white/5 hover:border-white/10 rounded-xl text-zinc-300 hover:text-white transition-all cursor-pointer"
+                          title="Edit bank specifications"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteBankClick(bank.id)}
+                          className="p-1.5 bg-brand-red/10 border border-brand-red/15 hover:bg-brand-red/15 rounded-xl text-brand-red transition-all cursor-pointer"
+                          title="Delete transfer system"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="h-24 flex flex-col items-center justify-center text-center rounded-2xl bg-zinc-950/40 border border-white/[0.04] sm:col-span-2">
+                    <p className="text-[9px] text-zinc-500 uppercase font-bold tracking-wider">No Bank Transfer Options Configured</p>
+                    <p className="text-[8px] text-zinc-600 mt-1">Click the button in the upper right to setup a CBE/Telebirr account.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-5 border-t border-white/[0.06]">
+              <button
+                type="submit"
+                className="bg-brand-yellow hover:bg-yellow-500 text-black px-8 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98 shadow-lg shadow-brand-yellow/10 font-sans"
+              >
+                <Save className="w-4 h-4" />
+                <span>Publish Bank Transfer Setup</span>
               </button>
             </div>
           </form>
