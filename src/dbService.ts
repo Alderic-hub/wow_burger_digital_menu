@@ -26,7 +26,28 @@ export const DEFAULT_RESTAURANT_INFO: RestaurantInfo = {
   instagram: "https://instagram.com",
   facebook: "https://facebook.com",
   tiktok: "https://tiktok.com",
-  telegram: "https://t.me"
+  telegram: "https://t.me",
+  showPopularSection: true,
+  bankAccounts: [
+    {
+      id: "bank-cbe",
+      bankName: "Commercial Bank of Ethiopia (CBE)",
+      accountNumber: "1000123456789",
+      accountHolder: "WOW BURGER PLC",
+      qrCodeUrl: "https://api.qrserver.com/v1/create-qr-code/?size=300x300&color=000000&bgcolor=FFFFFF&data=combanketh%3A%2F%2Fpay%3Fto%3D1000123456789%26name%3DWOW%20BURGER%20PLC",
+      logoUrl: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/20/Commercial_Bank_of_Ethiopia_logo.svg/512px-Commercial_Bank_of_Ethiopia_logo.svg.png",
+      isActive: true
+    },
+    {
+      id: "bank-telebirr",
+      bankName: "Telebirr",
+      accountNumber: "0911000000",
+      accountHolder: "WOW BURGER PLC",
+      qrCodeUrl: "https://api.qrserver.com/v1/create-qr-code/?size=300x300&color=000000&bgcolor=FFFFFF&data=telebirr%3A%2F%2Fpay%3Fphone%3D0911000000%26holder%3DWOW%2520BURGER%2520PLC",
+      logoUrl: "https://upload.wikimedia.org/wikipedia/commons/a/a2/Telebirr_logo.png",
+      isActive: true
+    }
+  ]
 };
 
 // Initialize localStorage with preset menu list if empty
@@ -52,13 +73,20 @@ export function initDB() {
 }
 
 async function testConnection() {
-  try {
-    await getDocFromServer(doc(db, "test", "connection"));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("the client is offline")) {
-      console.error("Please check your Firebase configuration.");
+  // Run after a short delay to allow the network layer to warm up
+  setTimeout(async () => {
+    try {
+      await getDocFromServer(doc(db, "test", "connection"));
+      console.log("Firebase Firestore connection established successfully.");
+    } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      if (errMsg.includes("the client is offline") || errMsg.includes("Could not reach Cloud Firestore")) {
+        console.warn("Firestore client is currently offline or warming up. Operating with local persistent cache.");
+      } else {
+        console.warn("Firestore connection check info:", errMsg);
+      }
     }
-  }
+  }, 1500);
 }
 
 // Bootstrap Firestore collections if they are currently unpopulated or need migration
@@ -184,6 +212,19 @@ export function subscribeRestaurantInfo(onUpdate: (info: RestaurantInfo) => void
     (snapshot) => {
       if (snapshot.exists()) {
         const info = snapshot.data() as RestaurantInfo;
+        if (!info.bankAccounts) {
+          info.bankAccounts = DEFAULT_RESTAURANT_INFO.bankAccounts;
+        } else {
+          info.bankAccounts = info.bankAccounts.map(b => {
+            if (b.id === "bank-cbe" && !b.logoUrl) {
+              return { ...b, logoUrl: DEFAULT_RESTAURANT_INFO.bankAccounts?.[0].logoUrl };
+            }
+            if (b.id === "bank-telebirr" && !b.logoUrl) {
+              return { ...b, logoUrl: DEFAULT_RESTAURANT_INFO.bankAccounts?.[1].logoUrl };
+            }
+            return b;
+          });
+        }
         localStorage.setItem("wow_restaurant_info", JSON.stringify(info));
         onUpdate(info);
       }
@@ -215,7 +256,21 @@ export function loadCategories(): Category[] {
 export function loadRestaurantInfo(): RestaurantInfo {
   initDB();
   try {
-    return JSON.parse(localStorage.getItem("wow_restaurant_info") || "{}") as RestaurantInfo;
+    const info = JSON.parse(localStorage.getItem("wow_restaurant_info") || "{}") as RestaurantInfo;
+    if (!info.bankAccounts) {
+      info.bankAccounts = DEFAULT_RESTAURANT_INFO.bankAccounts;
+    } else {
+      info.bankAccounts = info.bankAccounts.map(b => {
+        if (b.id === "bank-cbe" && !b.logoUrl) {
+          return { ...b, logoUrl: DEFAULT_RESTAURANT_INFO.bankAccounts?.[0].logoUrl };
+        }
+        if (b.id === "bank-telebirr" && !b.logoUrl) {
+          return { ...b, logoUrl: DEFAULT_RESTAURANT_INFO.bankAccounts?.[1].logoUrl };
+        }
+        return b;
+      });
+    }
+    return info;
   } catch {
     return DEFAULT_RESTAURANT_INFO;
   }
@@ -291,3 +346,5 @@ export async function saveRestaurantInfo(info: RestaurantInfo) {
     handleFirestoreError(error, OperationType.WRITE, `${path}/info`);
   }
 }
+
+

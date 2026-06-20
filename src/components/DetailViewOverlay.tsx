@@ -69,21 +69,8 @@ export default function DetailViewOverlay({
               </span>
             )}
 
-            {/* Action Buttons: Favorite and Close */}
+            {/* Action Buttons: Close */}
             <div className="absolute top-4 right-4 flex items-center gap-2">
-              {/* Favorite Toggle Button */}
-              <button
-                onClick={() => onToggleFavorite(item.id)}
-                className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all duration-300 shadow-md cursor-pointer ${
-                  isFavorite
-                    ? "bg-brand-red border-brand-red text-white scale-110 shadow-[0_4px_12px_rgba(230,30,42,0.4)]"
-                    : "bg-black/70 border-white/20 text-white hover:text-brand-red"
-                }`}
-                title="Favorite"
-              >
-                <Heart className={`w-[18px] h-[18px] ${isFavorite ? "fill-current" : ""}`} />
-              </button>
-
               {/* Close Floating Button */}
               <button
                 onClick={onClose}
@@ -164,6 +151,8 @@ export default function DetailViewOverlay({
                 ))}
               </div>
             </div>
+            
+
           </div>
         </motion.div>
       </div>

@@ -67,6 +67,8 @@ export default function MenuView({
     });
     const favEl = sectionRefs.current["Favorites"];
     if (favEl) observer.observe(favEl);
+    const popEl = sectionRefs.current["Popular"];
+    if (popEl) observer.observe(popEl);
 
     return () => {
       observer.disconnect();
@@ -82,7 +84,7 @@ export default function MenuView({
       const scrollOffset = elementTop - containerTop;
       
       container.scrollTo({
-        top: container.scrollTop + scrollOffset - 6,
+        top: container.scrollTop + scrollOffset - 62,
         behavior: "smooth"
       });
       setActiveCategory(categoryId);
@@ -98,12 +100,13 @@ export default function MenuView({
 
   // Add favorites if there are any
   const favoriteItems = menuItems.filter((i) => favorites.includes(i.id));
+  const popularItemsCount = menuItems.filter((i) => i.isPopular).length;
 
   return (
     <div className="w-full h-full flex flex-col relative select-none bg-black">
       
       {/* 1. STICKY TOP CONTROLLER (Menu Title + Single Category Button) */}
-      <div className="px-5 pt-5 pb-3 border-b border-white/[0.04] bg-neutral-950/90 backdrop-blur-md sticky top-0 z-30 flex items-center justify-between shrink-0">
+      <div className="px-5 py-4 border-b border-white/[0.04] bg-neutral-950/90 backdrop-blur-md sticky top-0 z-30 flex items-center justify-between shrink-0">
         <div>
           <h2 className="text-xl font-black tracking-tight text-white uppercase font-sans">
             Menu
@@ -113,29 +116,102 @@ export default function MenuView({
           </p>
         </div>
 
-        {/* Unified sleek navigation button (opens bottom sheet category chooser on click) */}
+        {/* Unified sleek navigation button */}
         <div>
           <button
             onClick={() => setIsSelectorOpen(!isSelectorOpen)}
-            className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-805 border border-white/[0.08] hover:border-brand-yellow/45 rounded-full px-4 py-2 text-xs font-bold text-white shadow-lg transition-all cursor-pointer active:scale-95 group"
+            className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-850 border border-white/[0.08] hover:border-brand-yellow/45 rounded-full px-4 py-2 text-xs font-bold text-white shadow-lg transition-all cursor-pointer active:scale-95 group"
             id="category_selector_button"
           >
             <span className="text-[11px] tracking-wider text-brand-yellow font-black uppercase">
-              {activeCategory === "Favorites" ? "Saved Plates" : (categories.find(c => c.id === activeCategory)?.label || activeCategory)}
+              {activeCategory === "Favorites" 
+                ? "Saved Plates" 
+                : activeCategory === "Popular" 
+                  ? "Most Popular" 
+                  : (categories.find(c => c.id === activeCategory)?.label || activeCategory)}
             </span>
             <ChevronDown className="w-3.5 h-3.5 text-brand-yellow group-hover:translate-y-0.5 transition-transform stroke-[2.5]" />
           </button>
         </div>
       </div>
 
-
-
       {/* 2. MAIN SCROLL CONTAINER */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-y-auto px-4 py-4 scrollbar-none space-y-10 pb-28 scroll-smooth"
+        className="flex-1 overflow-y-auto px-4 py-4 scrollbar-none space-y-6 pb-28 scroll-smooth"
         id="menu_scroll_container"
       >
+        {/* Most Popular Curated Horizontal Slider */}
+        {restaurantInfo?.showPopularSection !== false && menuItems.filter(i => i.isPopular).length > 0 && (
+          <div
+            data-category-id="Popular"
+            ref={(el) => {
+              sectionRefs.current["Popular"] = el;
+            }}
+            className="space-y-4 pt-1 pb-4 scroll-mt-4"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-black text-white tracking-tight leading-none uppercase">
+                  Most Popular 🔥
+                </h3>
+              </div>
+              <span className="text-[10px] text-zinc-500 font-mono">Swipe left ➔</span>
+            </div>
+            <div className="flex overflow-x-auto gap-4 py-2 px-1 scrollbar-none snap-x snap-mandatory">
+              {menuItems.filter(i => i.isPopular).map((item) => (
+                <div
+                  key={`popular-${item.id}`}
+                  onClick={() => onSelectItem(item)}
+                  className="w-[280px] sm:w-[320px] h-[185px] shrink-0 bg-neutral-950/90 border border-white/[0.04] hover:border-brand-yellow/30 rounded-2xl p-2 flex flex-col justify-between transition-all duration-500 cursor-pointer snap-start relative group shadow-2xl backdrop-blur-md overflow-hidden"
+                >
+                  {/* Absolute Glow Background Accent */}
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-brand-yellow/5 rounded-full blur-2xl group-hover:bg-brand-yellow/10 transition-all duration-500 pointer-events-none" />
+
+                  {/* Wide-oriented Immersive Image (dominates space) */}
+                  <div className="absolute inset-0 w-full h-full rounded-2xl overflow-hidden">
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                      referrerPolicy="no-referrer"
+                    />
+                    {/* Deep gradient overlay to house the text details */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/40" />
+                  </div>
+                  
+                  {/* Badge Overlay (Top Left, Black background, No Emoji) */}
+                  <div className="z-10 flex items-start justify-start p-1">
+                    <span className="text-[7.5px] bg-black border border-brand-yellow/30 text-brand-yellow font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-widest shadow-md flex items-center scale-95 group-hover:scale-100 transition-transform">
+                      POPULAR
+                    </span>
+                  </div>
+
+                  {/* Text Overlay inside image at the bottom */}
+                  <div className="z-10 p-2 space-y-1 bg-gradient-to-t from-black/90 to-transparent pt-4 rounded-b-2xl">
+                    <div className="flex items-center justify-between gap-2">
+                       <h4 className="text-xs sm:text-sm font-black text-white tracking-tight line-clamp-1 group-hover:text-brand-yellow transition-colors uppercase">
+                        {item.name}
+                      </h4>
+                      <span className="text-xs font-black text-brand-yellow shrink-0">{item.price.toFixed(2)} Br</span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[9.5px] text-zinc-300 line-clamp-1 leading-none max-w-[70%]">
+                        {item.description}
+                      </p>
+                      <span className="text-[7.5px] text-zinc-300 bg-white/[0.1] group-hover:bg-brand-yellow group-hover:text-black font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider transition-all duration-300">
+                        Discover
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+
         {/* Render grouped sections */}
         {categories.map((cat) => {
           const items = groupedItems[cat.id] || [];
@@ -391,6 +467,25 @@ export default function MenuView({
 
               {/* Scrollable list of categories */}
               <div className="overflow-y-auto px-4 py-2 space-y-1 pb-6 max-h-[300px]">
+                {restaurantInfo?.showPopularSection !== false && popularItemsCount > 0 && (
+                  <button
+                    key="Popular"
+                    onClick={() => handleCategorySelect("Popular")}
+                    className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl transition-all text-xs font-bold mb-1.5 ${
+                      activeCategory === "Popular"
+                        ? "bg-brand-yellow text-black font-black shadow-lg shadow-brand-yellow/10" 
+                        : "text-zinc-350 bg-brand-yellow/5 hover:bg-brand-yellow/10 border border-brand-yellow/10"
+                    }`}
+                  >
+                    <span className="uppercase tracking-wider flex items-center gap-1.5 font-black">
+                      <span>★ Most Popular</span>
+                    </span>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono ${activeCategory === "Popular" ? "bg-black/15 text-black font-black" : "bg-brand-yellow/10 text-brand-yellow"}`}>
+                      {popularItemsCount} plates
+                    </span>
+                  </button>
+                )}
+
                 {categories.map((cat) => {
                   const isSel = activeCategory === cat.id;
                   const count = groupedItems[cat.id]?.length || 0;

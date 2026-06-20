@@ -21,10 +21,11 @@ import MenuView from "./components/MenuView";
 import InfoView from "./components/InfoView";
 import AdminLogin from "./components/AdminLogin";
 import AdminDashboard from "./components/AdminDashboard";
+import PaymentView from "./components/PaymentView";
 
 export default function App() {
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
-  const [currentPage, setCurrentPage] = useState<"menu" | "info">("menu");
+  const [currentPage, setCurrentPage] = useState<"menu" | "info" | "payment">("menu");
 
   // Routing State
   const [currentRoute, setCurrentRoute] = useState<"customer" | "admin-login" | "admin-dashboard">(() => {
@@ -168,6 +169,7 @@ export default function App() {
           currentPage={currentPage}
           onInfoClick={() => setCurrentPage("info")}
           onBackClick={() => setCurrentPage("menu")}
+          onPaymentClick={() => setCurrentPage("payment")}
         />
 
         {/* Center Main Dynamic Panel - Direct Menu Experience */}
@@ -187,6 +189,11 @@ export default function App() {
           {/* DEDICATED FULL SCREEN INFORMATION PAGE */}
           {restaurantInfo && (
             <InfoView isVisible={currentPage === "info"} info={restaurantInfo} />
+          )}
+
+          {/* DEDICATED FULL SCREEN PAYMENT PAGE */}
+          {restaurantInfo && (
+            <PaymentView isVisible={currentPage === "payment"} bankAccounts={restaurantInfo.bankAccounts || []} />
           )}
         </div>
 

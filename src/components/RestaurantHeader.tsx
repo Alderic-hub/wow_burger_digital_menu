@@ -1,14 +1,15 @@
-import { Info, ArrowLeft } from "lucide-react";
+import { Info, ArrowLeft, Landmark } from "lucide-react";
 // @ts-ignore
 import wowBurgerLogo from "../assets/images/wow_burger_logo_1781154696795.png";
 
 interface RestaurantHeaderProps {
-  currentPage: "menu" | "info";
+  currentPage: "menu" | "info" | "payment";
   onInfoClick: () => void;
   onBackClick: () => void;
+  onPaymentClick?: () => void;
 }
 
-export default function RestaurantHeader({ currentPage, onInfoClick, onBackClick }: RestaurantHeaderProps) {
+export default function RestaurantHeader({ currentPage, onInfoClick, onBackClick, onPaymentClick }: RestaurantHeaderProps) {
   return (
     <header className="w-full z-30 px-4 py-3 bg-zinc-950 border-b border-white/[0.08] flex items-center justify-between shrink-0 select-none">
       {/* WOW Burger Branding Left side */}
@@ -30,26 +31,39 @@ export default function RestaurantHeader({ currentPage, onInfoClick, onBackClick
       </div>
 
       {/* Right Side Navigation Action Button */}
-      {currentPage === "menu" ? (
-        <button
-          onClick={onInfoClick}
-          className="w-9 h-9 rounded-full bg-zinc-900 border border-white/5 flex items-center justify-center text-zinc-400 hover:text-brand-yellow hover:bg-zinc-800 transition-all cursor-pointer active:scale-90"
-          title="Restaurant Info"
-          id="info_trigger_btn"
-        >
-          <Info className="w-4 h-4" />
-        </button>
-      ) : (
-        <button
-          onClick={onBackClick}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 border border-white/5 hover:bg-zinc-850 hover:text-brand-yellow text-zinc-350 transition-all cursor-pointer active:scale-90 text-[11px] font-bold tracking-wider uppercase font-mono"
-          title="Return to Menu"
-          id="info_back_btn"
-        >
-          <ArrowLeft className="w-3.5 h-3.5 text-brand-yellow" />
-          <span>Back</span>
-        </button>
-      )}
+      <div className="flex items-center gap-2">
+        {onPaymentClick && currentPage === "menu" && (
+          <button
+            onClick={onPaymentClick}
+            className="w-9 h-9 rounded-full bg-zinc-900 border border-white/5 flex items-center justify-center text-zinc-400 hover:text-brand-yellow hover:bg-zinc-800 transition-all cursor-pointer active:scale-90"
+            title="View Payment & Bank Details"
+            id="payment_trigger_btn"
+          >
+            <Landmark className="w-4 h-4 text-brand-yellow/85" />
+          </button>
+        )}
+
+        {currentPage === "menu" ? (
+          <button
+            onClick={onInfoClick}
+            className="w-9 h-9 rounded-full bg-zinc-900 border border-white/5 flex items-center justify-center text-zinc-400 hover:text-brand-yellow hover:bg-zinc-800 transition-all cursor-pointer active:scale-90"
+            title="Restaurant Info"
+            id="info_trigger_btn"
+          >
+            <Info className="w-4 h-4" />
+          </button>
+        ) : (
+          <button
+            onClick={onBackClick}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900 border border-white/5 hover:bg-zinc-850 hover:text-brand-yellow text-zinc-350 transition-all cursor-pointer active:scale-90 text-[11px] font-bold tracking-wider uppercase font-mono"
+            title="Return to Menu"
+            id="info_back_btn"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 text-brand-yellow" />
+            <span>Back</span>
+          </button>
+        )}
+      </div>
     </header>
   );
 }

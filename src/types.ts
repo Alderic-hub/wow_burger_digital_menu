@@ -37,5 +37,19 @@ export interface RestaurantInfo {
   facebook: string;
   tiktok: string;
   telegram: string;
+  showPopularSection?: boolean;
+  bankAccounts?: BankAccount[];
 }
+
+export interface BankAccount {
+  id: string;
+  bankName: string;
+  accountNumber: string;
+  accountHolder?: string;
+  qrCodeUrl?: string; // Optional QR code image
+  logoUrl?: string; // Optional logo image URL
+  isActive: boolean;
+}
+
+
 
