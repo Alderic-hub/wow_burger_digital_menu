@@ -67,6 +67,8 @@ WOW Burger leverages a document-oriented database design utilizing flat collecti
 * **Role**: Configures brand vision statements, open hours, and system-wide checkout/payment methods dynamically.
 * **Access Rules**: Globally readable; writes locked to authorized administrators.
 
+> 💡 **Design Pattern Separation**: Within the administrative portal, control over this document is decoupled into separate tabs: **Restaurant Info** (manages core profile metadata, schedules, location details, and social links) and **Banking & Wallets** (manages checkout bank transfers, mobile wallets, and custom scan codes via a dedicated, nested accounts schema).
+
 | Field Name | Type | Description | Required | Example |
 | :--- | :--- | :--- | :---: | :--- |
 | `mission` | `string` | Elegant statement detailing brand promise | Yes | `"Serving happiness one burger at a time."` |
@@ -106,3 +108,4 @@ Dynamic bank accounts schema embedded inside `restaurant/info`.
 1. **Category Cascading**: Standard menu items are coupled directly using `category` foreign keys matching `/categories/{id}`. This ensures UI dynamic layouts can query `.where("category", "==", activeCategory)` deterministically.
 2. **Zero-Trust Administrative Pathing**: Regular users have read permission on all menu elements, while write access is verified dynamically against `/admins/{uid}` security records which cannot be created client-side.
 3. **No Unbounded Data Growth**: Items like reviews, order cart details, or session histories are managed through local device mechanisms and secure transactional state layers to completely eliminate "Denial of Wallet" structural exploits in Firestore.
+4. **Isolated Save Transactional Boundaries**: For operational reliability, changes applied under **Restaurant Info** update only core branding values, while edits under **Banking & Wallets** modify and commit the `bankAccounts` roster separately. Each context guarantees single-domain mutability without risk of overwriting secondary variables.
