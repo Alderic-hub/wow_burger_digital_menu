@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { MenuItem, Category } from "../types";
-import { ChevronDown, Heart, Star, Compass, AlertCircle } from "lucide-react";
+import { MenuItem, Category, RestaurantInfo } from "../types";
+import { ChevronDown, Heart, Star, Compass, AlertCircle, Clock, MapPin, Phone, Mail } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { SUBCATEGORIES } from "../menuData";
 
 interface MenuViewProps {
   menuItems: MenuItem[];
@@ -9,17 +10,19 @@ interface MenuViewProps {
   favorites: string[];
   onToggleFavorite: (id: string) => void;
   onSelectItem: (item: MenuItem) => void;
+  restaurantInfo?: RestaurantInfo | null;
 }
 
 // Map of category descriptions/sub-headings for a premium aesthetic
 const CATEGORY_SUBHEADINGS: Record<string, string> = {
-  "Pizza": "Wood-Fired Classics",
-  "Burgers": "Handcrafted Favorites",
-  "Wraps": "Fresh & Rolled Wraps",
-  "Crispy Chicken": "Southern Style Golden Crunch",
-  "Salads": "Refreshing Garden Plates",
-  "Special Fries": "Crispy Loaded Hot Sides",
-  "Drinks": "Premium Refreshing Elixirs"
+  "Burger": "Handcrafted Favorites & Double Patties",
+  "Chicken": "Southern Style Golden Crunch & Bites",
+  "Wrap": "Fresh Rolled Tortillas",
+  "Sandwich": "Toasted Triple-Decker Club Choices",
+  "Pizza": "Wood-Fired thin-crust Pizzas",
+  "Sides_Extras": "Crispy Loaded Fries & Bites",
+  "Drinks": "Premium Refreshing Softs & Shakes",
+  "Sauces_Addons": "Extra Infused Dipping Liquids & Toppings"
 };
 
 export default function MenuView({
@@ -27,10 +30,11 @@ export default function MenuView({
   categories,
   favorites,
   onToggleFavorite,
-  onSelectItem
+  onSelectItem,
+  restaurantInfo
 }: MenuViewProps) {
   const [isSelectorOpen, setIsSelectorOpen] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<string>("Burgers");
+  const [activeCategory, setActiveCategory] = useState<string>("Burger");
   
   const containerRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -98,7 +102,7 @@ export default function MenuView({
   return (
     <div className="w-full h-full flex flex-col relative select-none bg-black">
       
-      {/* 1. STICKY TOP CONTROLLER (Menu Title + Compact Category Selector) */}
+      {/* 1. STICKY TOP CONTROLLER (Menu Title + Single Category Button) */}
       <div className="px-5 pt-5 pb-3 border-b border-white/[0.04] bg-neutral-950/90 backdrop-blur-md sticky top-0 z-30 flex items-center justify-between shrink-0">
         <div>
           <h2 className="text-xl font-black tracking-tight text-white uppercase font-sans">
@@ -109,63 +113,22 @@ export default function MenuView({
           </p>
         </div>
 
-        {/* Widescreen Horizontal Pill List - Visible on md and up */}
-        <div className="hidden md:flex flex-wrap items-center gap-1.5 max-w-full px-1 justify-end">
-          {categories.map((cat) => {
-            const isSel = activeCategory === cat.id;
-            const count = groupedItems[cat.id]?.length || 0;
-            if (count === 0) return null;
-            return (
-              <button
-                key={cat.id}
-                onClick={() => handleCategorySelect(cat.id)}
-                className={`px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer ${
-                  isSel 
-                    ? "bg-brand-yellow text-black shadow-md shadow-brand-yellow/15 scale-105" 
-                    : "bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-                }`}
-              >
-                {cat.label}
-              </button>
-            );
-          })}
-          {favoriteItems.length > 0 && (
-            <button
-              onClick={() => handleCategorySelect("Favorites")}
-              className={`px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap cursor-pointer flex items-center gap-1 ${
-                activeCategory === "Favorites"
-                  ? "bg-brand-red text-white shadow-md shadow-brand-red/15 scale-105"
-                  : "bg-brand-red/10 border border-brand-red/20 text-brand-red hover:bg-brand-red/20"
-              }`}
-            >
-              <Heart className="w-3 h-3 fill-current" />
-              <span>Saved</span>
-            </button>
-          )}
-        </div>
-
-        {/* Compact dropdown trigger selector - Visible only on mobile < md */}
-        <div className="md:hidden">
+        {/* Unified sleek navigation button (opens bottom sheet category chooser on click) */}
+        <div>
           <button
             onClick={() => setIsSelectorOpen(!isSelectorOpen)}
-            className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-white/[0.08] rounded-full px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition-all cursor-pointer active:scale-95"
+            className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-805 border border-white/[0.08] hover:border-brand-yellow/45 rounded-full px-4 py-2 text-xs font-bold text-white shadow-lg transition-all cursor-pointer active:scale-95 group"
             id="category_selector_button"
           >
-            <span className="text-[10px] tracking-wider text-brand-yellow font-black uppercase">
-              {activeCategory}
+            <span className="text-[11px] tracking-wider text-brand-yellow font-black uppercase">
+              {activeCategory === "Favorites" ? "Saved Plates" : (categories.find(c => c.id === activeCategory)?.label || activeCategory)}
             </span>
-            <ChevronDown className="w-3.5 h-3.5 text-zinc-400 stroke-[2.5]" />
+            <ChevronDown className="w-3.5 h-3.5 text-brand-yellow group-hover:translate-y-0.5 transition-transform stroke-[2.5]" />
           </button>
         </div>
       </div>
 
-      {/* Floating Subtle Category Indicator at top-right of scrollable area */}
-      <div className="absolute top-18 right-5 z-20 pointer-events-none transition-all duration-300">
-        <div className="border border-white/10 bg-black/85 text-brand-yellow font-mono px-3 py-1 text-[9px] tracking-[0.2em] uppercase rounded-md shadow-lg backdrop-blur-md flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-brand-yellow animate-ping" />
-          <span>{activeCategory}</span>
-        </div>
-      </div>
+
 
       {/* 2. MAIN SCROLL CONTAINER */}
       <div
@@ -191,7 +154,7 @@ export default function MenuView({
               <div className="text-center py-5 select-none relative overflow-hidden">
                 <div className="absolute inset-0 flex items-center justify-center opacity-5">
                   <span className="text-6xl font-black uppercase tracking-widest text-white select-none whitespace-nowrap">
-                    {cat.id}
+                    {cat.label || cat.id}
                   </span>
                 </div>
                 
@@ -199,13 +162,13 @@ export default function MenuView({
                 <div className="flex items-center justify-center gap-3">
                   <div className="h-[1px] w-8 bg-gradient-to-r from-transparent to-brand-yellow/60" />
                   <span className="text-brand-yellow text-xs font-black tracking-[0.25em] uppercase font-mono">
-                    ★ {cat.id} ★
+                    ★ {cat.label || cat.id} ★
                   </span>
                   <div className="h-[1px] w-8 bg-gradient-to-l from-transparent to-brand-yellow/60" />
                 </div>
                 
                 <h3 className="text-2xl font-black text-white tracking-tight leading-none mt-1.5 uppercase font-sans">
-                  {cat.id}
+                  {cat.label || cat.id}
                 </h3>
                 
                 <p className="text-[10px] text-zinc-400 font-medium tracking-wide mt-1 italic font-serif">
@@ -215,7 +178,7 @@ export default function MenuView({
                 <div className="w-12 h-[2px] bg-brand-red mx-auto mt-3.5 rounded-full shadow-sm" />
               </div>
 
-              {/* Grid of Image-First Cards */}
+              {/* Grid of Image-First Cards - Flat list of all items */}
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {items.map((item) => {
                   const isFav = favorites.includes(item.id);
@@ -333,6 +296,68 @@ export default function MenuView({
             </div>
           </div>
         )}
+
+        {/* Brand Footer Section about the Company */}
+        <div className="pt-16 pb-12 mt-12 border-t border-white/[0.04] text-center space-y-6 max-w-sm mx-auto select-none">
+          <div className="space-y-2.5">
+            <h4 className="text-xs font-black text-white uppercase tracking-[0.2em] font-mono">
+              ★ The WOW Burger Story ★
+            </h4>
+            <p className="text-[11px] text-zinc-400 font-light leading-relaxed px-4">
+              {restaurantInfo?.mission || "Handcrafted gourmet burgers made with fresh, locally sourced ingredients and pizzas cooked with a secret naturally leavened dough recipe. Our wood-fired oven ensures deep-charred crusts and unparalleled crispiness."}
+            </p>
+          </div>
+
+          <div className="flex flex-col items-center gap-2 text-[10px] text-zinc-400 font-medium px-4">
+            <div className="flex items-center gap-1.5 font-mono text-[9px] text-zinc-500 uppercase tracking-widest">
+              <Clock className="w-3.5 h-3.5 text-brand-yellow shrink-0" />
+              <span>Hours: {restaurantInfo?.openingHours || "11:00 AM - 10:00 PM"}</span>
+            </div>
+            <div className="flex items-center gap-1.5 font-mono text-[9px] text-zinc-500 uppercase tracking-widest">
+              <MapPin className="w-3.5 h-3.5 text-brand-red shrink-0" />
+              <span>{restaurantInfo?.locationName || "Bole Atlas"}, {restaurantInfo?.locationAddress || "behind Sapphire Hotel"}</span>
+            </div>
+            
+            {(restaurantInfo?.phone || restaurantInfo?.email) && (
+              <div className="flex items-center gap-2 mt-2">
+                {restaurantInfo?.phone && (
+                  <a href={`tel:${restaurantInfo.phone}`} className="text-zinc-400 hover:text-brand-yellow font-extrabold underline transition-colors">
+                    {restaurantInfo.phone}
+                  </a>
+                )}
+                {restaurantInfo?.phone && restaurantInfo?.email && <span className="text-white/10">•</span>}
+                {restaurantInfo?.email && (
+                  <a href={`mailto:${restaurantInfo.email}`} className="text-zinc-400 hover:text-brand-red font-extrabold underline transition-colors">
+                    Email
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="pt-6 border-t border-white/[0.04] space-y-1">
+            <div className="inline-flex items-center gap-1.5 bg-neutral-900/60 px-3 py-1 rounded-full border border-white/[0.05]">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-yellow" />
+              <span className="text-[9px] text-zinc-400 uppercase font-bold tracking-widest font-mono">
+                Digital Menu Experience
+              </span>
+            </div>
+            <p className="text-[10px] text-zinc-500 font-medium">
+              Designed & Developed by <span className="text-zinc-300 font-black hover:text-brand-yellow transition-colors">Aldric Labs</span>
+            </p>
+            <div className="pt-1.5 pb-1">
+              <button 
+                onClick={() => {
+                  window.location.hash = "#/wow-burger-admin";
+                }}
+                className="text-[9px] text-zinc-600 hover:text-brand-yellow uppercase tracking-widest font-mono font-bold transition-all border border-transparent hover:border-white/[0.05] hover:bg-neutral-900/40 px-2.5 py-1 rounded-md cursor-pointer"
+              >
+                [ Admin Portal ]
+              </button>
+            </div>
+            <p className="text-[8px] text-zinc-600 font-mono">© 2026 WOW Burger. All Rights Reserved.</p>
+          </div>
+        </div>
       </div>
 
       {/* 3. BOTTOM SHEET MODAL (Framer Motion Drawer) */}
@@ -345,7 +370,7 @@ export default function MenuView({
               animate={{ opacity: 0.5 }}
               exit={{ opacity: 0 }}
               onClick={() => setIsSelectorOpen(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm z-40"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
             />
 
             {/* Bottom Drawer Sheet */}
@@ -354,7 +379,7 @@ export default function MenuView({
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 25, stiffness: 220 }}
-              className="absolute bottom-0 left-0 right-0 max-h-[80%] bg-zinc-950 border-t border-white/10 rounded-t-[28px] overflow-hidden z-50 flex flex-col shadow-2xl"
+              className="fixed bottom-0 left-0 right-0 md:left-1/2 md:-translate-x-1/2 md:max-w-xl max-h-[80%] bg-zinc-950 border-t border-white/10 rounded-t-[28px] overflow-hidden z-50 flex flex-col shadow-2xl"
               id="category_bottom_drawer"
             >
               <div className="w-12 h-1 bg-white/15 mx-auto my-3 rounded-full shrink-0" />

@@ -31,14 +31,22 @@ export const DEFAULT_RESTAURANT_INFO: RestaurantInfo = {
 
 // Initialize localStorage with preset menu list if empty
 export function initDB() {
-  if (!localStorage.getItem("wow_menu_items")) {
+  const needsMigration = !localStorage.getItem("wow_db_migrated_v2");
+  if (needsMigration) {
     localStorage.setItem("wow_menu_items", JSON.stringify(MENU_ITEMS));
-  }
-  if (!localStorage.getItem("wow_categories")) {
     localStorage.setItem("wow_categories", JSON.stringify(CATEGORIES));
-  }
-  if (!localStorage.getItem("wow_restaurant_info")) {
     localStorage.setItem("wow_restaurant_info", JSON.stringify(DEFAULT_RESTAURANT_INFO));
+    localStorage.setItem("wow_db_migrated_v2", "true");
+  } else {
+    if (!localStorage.getItem("wow_menu_items")) {
+      localStorage.setItem("wow_menu_items", JSON.stringify(MENU_ITEMS));
+    }
+    if (!localStorage.getItem("wow_categories")) {
+      localStorage.setItem("wow_categories", JSON.stringify(CATEGORIES));
+    }
+    if (!localStorage.getItem("wow_restaurant_info")) {
+      localStorage.setItem("wow_restaurant_info", JSON.stringify(DEFAULT_RESTAURANT_INFO));
+    }
   }
   testConnection();
 }
@@ -53,9 +61,51 @@ async function testConnection() {
   }
 }
 
-// Bootstrap Firestore collections if they are currently unpopulated
+// Bootstrap Firestore collections if they are currently unpopulated or need migration
 export async function bootstrapFirestoreIfEmpty() {
   try {
+    const hasRemoteMigrated = localStorage.getItem("wow_remote_migrated_v2");
+    
+    if (!hasRemoteMigrated) {
+      console.log("Migrating remote database to support updated premium category structure...");
+      
+      // Clear existing Categories and Menu Items collection
+      const menuCollRef = collection(db, "menu");
+      const menuSnapshot = await getDocs(menuCollRef);
+      for (const d of menuSnapshot.docs) {
+        await deleteDoc(doc(db, "menu", d.id));
+      }
+      
+      const catCollRef = collection(db, "categories");
+      const catSnapshot = await getDocs(catCollRef);
+      for (const d of catSnapshot.docs) {
+        await deleteDoc(doc(db, "categories", d.id));
+      }
+      
+      // Write new CATEGORIES
+      for (const cat of CATEGORIES) {
+        await setDoc(doc(db, "categories", cat.id), cat);
+      }
+      localStorage.setItem("wow_categories_last_sync", JSON.stringify(CATEGORIES));
+      
+      // Write new MENU_ITEMS
+      for (const item of MENU_ITEMS) {
+        await setDoc(doc(db, "menu", item.id), item);
+      }
+      localStorage.setItem("wow_menu_items_last_sync", JSON.stringify(MENU_ITEMS));
+      
+      // Bootstrap restaurant info if missing
+      const infoDocRef = doc(db, "restaurant", "info");
+      const infoSnapshot = await getDoc(infoDocRef);
+      if (!infoSnapshot.exists()) {
+        await setDoc(infoDocRef, DEFAULT_RESTAURANT_INFO);
+      }
+      
+      localStorage.setItem("wow_remote_migrated_v2", "true");
+      console.log("Migration complete!");
+      return;
+    }
+
     // Check & bootstrap menu
     const menuCollRef = collection(db, "menu");
     const menuSnapshot = await getDocs(menuCollRef);

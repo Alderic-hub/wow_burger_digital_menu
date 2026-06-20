@@ -32,10 +32,10 @@ export default function App() {
     const hash = window.location.hash;
     const hasToken = !!localStorage.getItem("wow_admin_token");
 
-    if (path.startsWith("/admin/login") || hash.startsWith("#/admin/login")) {
+    if (path.startsWith("/wow-burger-admin/login") || hash.startsWith("#/wow-burger-admin/login")) {
       return "admin-login";
     }
-    if (path.startsWith("/admin") || hash.startsWith("#/admin")) {
+    if (path.startsWith("/wow-burger-admin") || hash.startsWith("#/wow-burger-admin")) {
       return hasToken ? "admin-dashboard" : "admin-login";
     }
     return "customer";
@@ -83,9 +83,9 @@ export default function App() {
       const hash = window.location.hash;
       const hasToken = !!localStorage.getItem("wow_admin_token");
 
-      if (path.startsWith("/admin/login") || hash.startsWith("#/admin/login")) {
+      if (path.startsWith("/wow-burger-admin/login") || hash.startsWith("#/wow-burger-admin/login")) {
         setCurrentRoute("admin-login");
-      } else if (path.startsWith("/admin") || hash.startsWith("#/admin")) {
+      } else if (path.startsWith("/wow-burger-admin") || hash.startsWith("#/wow-burger-admin")) {
         setCurrentRoute(hasToken ? "admin-dashboard" : "admin-login");
       } else {
         setCurrentRoute("customer");
@@ -180,6 +180,7 @@ export default function App() {
               favorites={favorites}
               onToggleFavorite={handleToggleFavorite}
               onSelectItem={setSelectedItem}
+              restaurantInfo={restaurantInfo}
             />
           </div>
 

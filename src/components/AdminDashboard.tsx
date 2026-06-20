@@ -5,6 +5,7 @@ import {
   loadCategories, saveCategories, 
   loadRestaurantInfo, saveRestaurantInfo 
 } from "../dbService";
+import { SUBCATEGORIES } from "../menuData";
 import { 
   LayoutDashboard, FolderKanban, Utensils, Info, LogOut, 
   Plus, Trash2, Edit2, Check, QrCode, DollarSign, Image as ImageIcon, 
@@ -60,14 +61,15 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
   };
 
   const handleOpenAddItem = () => {
-    const randomId = "item-" + Math.random().toString(36).substr(2, 9);
+    const randomId = "item_" + Math.random().toString(36).substr(2, 9);
     setSelectedItem(null);
     setItemForm({
       id: randomId,
       name: "",
       price: 500,
       ingredients: "",
-      category: categories[0]?.id || "Burgers",
+      category: categories[0]?.id || "Burger",
+      subcategory: (categories[0] ? SUBCATEGORIES[categories[0].id]?.[0] : "") || "Classic Burger",
       image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80",
       description: "",
       prepTime: "10-15 min",
@@ -142,7 +144,7 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
       return;
     }
 
-    const catId = categoryForm.id || categoryForm.label.trim().replace(/\s+/g, '-');
+    const catId = categoryForm.id || categoryForm.label.trim().replace(/\s+/g, '_');
     const finalCategory: Category = {
       id: catId,
       label: categoryForm.label,
@@ -533,12 +535,34 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Assigned Category *</label>
                     <select
-                      value={itemForm.category || "Burgers"}
-                      onChange={e => setItemForm({...itemForm, category: e.target.value})}
+                      value={itemForm.category || "Burger"}
+                      onChange={e => {
+                        const newCat = e.target.value;
+                        const subList = SUBCATEGORIES[newCat] || [];
+                        setItemForm({
+                          ...itemForm,
+                          category: newCat,
+                          subcategory: subList[0] || ""
+                        });
+                      }}
                       className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow/30 font-mono"
                     >
                       {categories.map(c => (
                         <option key={c.id} value={c.id}>{c.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Subcategory Assignment */}
+                  <div className="space-y-1.5 font-sans">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Assigned Subcategory *</label>
+                    <select
+                      value={itemForm.subcategory || (SUBCATEGORIES[itemForm.category || ""]?.[0] || "")}
+                      onChange={e => setItemForm({...itemForm, subcategory: e.target.value})}
+                      className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow/30 font-mono"
+                    >
+                      {(SUBCATEGORIES[itemForm.category || ""] || []).map(s => (
+                        <option key={s} value={s}>{s}</option>
                       ))}
                     </select>
                   </div>

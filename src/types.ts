@@ -12,6 +12,7 @@ export interface MenuItem {
   isPopular?: boolean;
   isChefPick?: boolean;
   isFeatured?: boolean;
+  subcategory?: string; // e.g. "Classic Burger", "Cheeseburger", "Fries"
 }
 
 export interface Category {
