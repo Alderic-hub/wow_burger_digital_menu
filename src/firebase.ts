@@ -7,7 +7,8 @@ const app = initializeApp(firebaseConfig);
 // CRITICAL: Must use the specific firestoreDatabaseId provided in the applet config, while forcing long polling to work reliably in web preview iframe.
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
-}, firebaseConfig.firestoreDatabaseId);
+  useFetchStreams: false,
+} as any, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 
 export enum OperationType {
