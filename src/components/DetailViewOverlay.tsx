@@ -1,6 +1,6 @@
-import { MouseEvent } from "react";
+import { MouseEvent, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { X, Clock, Flame, Star, CheckCircle, Heart } from "lucide-react";
+import { X, Clock, Flame, Star, CheckCircle, Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import { MenuItem } from "../types";
 
 interface DetailViewOverlayProps {
@@ -16,6 +16,8 @@ export default function DetailViewOverlay({
   isFavorite,
   onToggleFavorite
 }: DetailViewOverlayProps) {
+  const [activeImgIndex, setActiveImgIndex] = useState(0);
+
   if (!item) return null;
 
   // Split comma-separated ingredients into standard list
@@ -28,6 +30,18 @@ export default function DetailViewOverlay({
     if (e.target === e.currentTarget) {
       onClose();
     }
+  };
+
+  const carouselImages = [item.image, ...(item.images || [])].filter(Boolean);
+
+  const handlePrevImage = (e: MouseEvent) => {
+    e.stopPropagation();
+    setActiveImgIndex((prev) => (prev === 0 ? carouselImages.length - 1 : prev - 1));
+  };
+
+  const handleNextImage = (e: MouseEvent) => {
+    e.stopPropagation();
+    setActiveImgIndex((prev) => (prev === carouselImages.length - 1 ? 0 : prev + 1));
   };
 
   return (
@@ -51,16 +65,56 @@ export default function DetailViewOverlay({
           className="relative w-full max-w-md glass-overlay rounded-3xl overflow-hidden shadow-[0_-20px_50px_rgba(255,193,7,0.15)] border border-white/10 max-h-[85vh] flex flex-col z-10"
           id="item_detail_modal"
         >
-          {/* Header Food Image Cover */}
-          <div className="relative h-48 w-full shrink-0">
-            <img
-              src={item.image}
-              alt={item.name}
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
+          {/* Header Food Image Cover / Carousel */}
+          <div className="relative h-48 w-full shrink-0 overflow-hidden bg-zinc-900">
+            <AnimatePresence mode="wait">
+              <motion.img
+                key={activeImgIndex}
+                src={carouselImages[activeImgIndex]}
+                alt={`${item.name} image index ${activeImgIndex}`}
+                initial={{ opacity: 0, scale: 1.05 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.3 }}
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </AnimatePresence>
+            
             {/* Dark mask overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent pointer-events-none" />
+
+            {/* Carousel Navigation Buttons */}
+            {carouselImages.length > 1 && (
+              <>
+                <button
+                  onClick={handlePrevImage}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white hover:bg-black/95 transition-all z-20 cursor-pointer"
+                  title="Previous Image"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleNextImage}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white hover:bg-black/95 transition-all z-20 cursor-pointer"
+                  title="Next Image"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+
+                {/* Dot Indicators */}
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20 pointer-events-none bg-black/40 px-2 py-1 rounded-full border border-white/5">
+                  {carouselImages.map((_, idx) => (
+                    <div
+                      key={idx}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        idx === activeImgIndex ? "w-3.5 bg-brand-yellow" : "w-1.5 bg-white/45"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
 
             {/* Popular Badge */}
             {item.isPopular && (
@@ -70,7 +124,7 @@ export default function DetailViewOverlay({
             )}
 
             {/* Action Buttons: Close */}
-            <div className="absolute top-4 right-4 flex items-center gap-2">
+            <div className="absolute top-4 right-4 flex items-center gap-2 z-20">
               {/* Close Floating Button */}
               <button
                 onClick={onClose}

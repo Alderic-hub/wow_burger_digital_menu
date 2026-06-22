@@ -32,6 +32,9 @@ export default function InfoView({ isVisible, info }: InfoViewProps) {
     setExpandedQrId(expandedQrId === id ? null : id);
   };
 
+  const finalLogo = info.logoUrl || wowBurgerLogo;
+  const finalBanner = info.bannerUrl || bannerImage;
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -45,7 +48,7 @@ export default function InfoView({ isVisible, info }: InfoViewProps) {
       <div className="relative h-44 sm:h-48 w-full shrink-0">
         <div className="absolute inset-0 overflow-hidden">
           <img
-            src={bannerImage}
+            src={finalBanner}
             alt="WOW Burger Banner"
             className="w-full h-full object-cover brightness-50"
             referrerPolicy="no-referrer"
@@ -58,7 +61,7 @@ export default function InfoView({ isVisible, info }: InfoViewProps) {
         <div className="absolute -bottom-2 left-6 flex items-end gap-3.5 z-35">
           <div className="w-18 h-18 rounded-full overflow-hidden border-2 border-brand-yellow bg-zinc-950 shadow-[0_8px_24px_rgba(255,193,7,0.6)]">
             <img
-              src={wowBurgerLogo}
+              src={finalLogo}
               alt="WOW Burger Brand Logo"
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"

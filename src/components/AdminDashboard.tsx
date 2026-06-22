@@ -1,16 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { MenuItem, Category, RestaurantInfo, BankAccount } from "../types";
 import { 
   loadMenuItems, saveMenuItems, 
   loadCategories, saveCategories, 
-  loadRestaurantInfo, saveRestaurantInfo 
+  loadRestaurantInfo, saveRestaurantInfo
 } from "../dbService";
 import { SUBCATEGORIES } from "../menuData";
 import { 
   LayoutDashboard, FolderKanban, Utensils, Info, LogOut, 
   Plus, Trash2, Edit2, Check, QrCode, DollarSign, Image as ImageIcon, 
   Clock, Flame, Star, Save, Link as LinkIcon, RefreshCw, X, Eye, ThumbsUp,
-  Sparkles
+  Sparkles, Users, Key, Sliders, Upload, ChevronLeft, ChevronRight, CheckCircle
 } from "lucide-react";
 
 interface AdminDashboardProps {
@@ -18,7 +18,7 @@ interface AdminDashboardProps {
   onRefreshPublicData: () => void;
 }
 
-type TabType = "overview" | "categories" | "items" | "restaurant" | "payments";
+type TabType = "overview" | "categories" | "items" | "restaurant" | "payments" | "settings";
 
 export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabType>("overview");
@@ -33,6 +33,33 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
+
+  // Pagination & Filtering States for Menu Items Catalog
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedFilterCategory, setSelectedFilterCategory] = useState("all");
+  const [selectedFilterTag, setSelectedFilterTag] = useState("all");
+  const [sortBy, setSortBy] = useState("name_asc");
+  const [adminCurrentPage, setAdminCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+
+  // Password Management Form State
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: ""
+  });
+  const [passwordStatusMsg, setPasswordStatusMsg] = useState({ type: "", text: "" });
+
+  // Security Reset Email Simulation States
+  const [activeGeneratedCode, setActiveGeneratedCode] = useState<string>("");
+  const [enteredCode, setEnteredCode] = useState<string>("");
+  const [simulatedEmailInbox, setSimulatedEmailInbox] = useState<{
+    to: string;
+    subject: string;
+    body: string;
+    code: string;
+    receivedAt: string;
+  } | null>(null);
 
   // Popular items curation search state & toggles
   const [popularSearch, setPopularSearch] = useState("");
@@ -146,6 +173,210 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
         bankAccounts: updatedBanks
       }));
     }
+  };
+
+  // --- PASSWORD UPDATE & IDENTITY LOGIC ---
+  const handleSendVerificationCode = () => {
+    const targetEmail = restaurantInfo.adminEmail || "admin@wowburger.et";
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    setActiveGeneratedCode(code);
+    setSimulatedEmailInbox({
+      to: targetEmail,
+      subject: "🔑 WOW Burger - Admin Password Reset Code Request",
+      body: `You are receiving this email because a request was initiated from the Administrative Panel to change the account password.
+
+Your secure 6-digit administrative verification code is: ${code}
+
+If you did not request this, please verify that system security parameters are healthy.`,
+      code,
+      receivedAt: new Date().toLocaleTimeString()
+    });
+
+    setPasswordStatusMsg({
+      type: "success",
+      text: `A safe 6-digit verification code has been dispatched to ${targetEmail}!`
+    });
+  };
+
+  const handleSavePassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordStatusMsg({ type: "", text: "" });
+
+    if (!activeGeneratedCode) {
+      setPasswordStatusMsg({ type: "error", text: "Please request a verification email code first!" });
+      return;
+    }
+
+    if (enteredCode !== activeGeneratedCode) {
+      setPasswordStatusMsg({ type: "error", text: "Invalid verification code! Please check your administration email inbox closely." });
+      return;
+    }
+
+    if (passwordForm.newPassword.length < 4) {
+      setPasswordStatusMsg({ type: "error", text: "New password must be at least 4 characters long." });
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordStatusMsg({ type: "error", text: "New passwords do not match!" });
+      return;
+    }
+
+    // Save updated credentials to LocalStorage
+    localStorage.setItem("wow_admin_password", passwordForm.newPassword);
+    
+    // Save updated credentials permanently to Firestore
+    const updatedInfo = { 
+      ...restaurantInfo, 
+      adminPassword: passwordForm.newPassword 
+    };
+
+    setRestaurantInfo(updatedInfo);
+    setInfoForm(updatedInfo);
+
+    saveRestaurantInfo(updatedInfo).then(() => {
+      if (onRefreshPublicData) {
+        onRefreshPublicData();
+      }
+    });
+
+    setPasswordStatusMsg({ 
+      type: "success", 
+      text: "Administrative authorization successful! Password updated permanently." 
+    });
+
+    // Reset forms and codes
+    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    setEnteredCode("");
+    setActiveGeneratedCode("");
+    setSimulatedEmailInbox(null);
+  };
+
+  // --- IMAGE UPLOAD & CANVAS RESIZING SYSTEM ---
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>, isForCarouselIndex?: number) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imgObj = new Image();
+      imgObj.onload = () => {
+        const canvas = document.createElement("canvas");
+        const maxDim = 500; // Optimal performance scaling for Firestore & client frame rates
+        let width = imgObj.width;
+        let height = imgObj.height;
+
+        if (width > height) {
+          if (width > maxDim) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          }
+        } else {
+          if (height > maxDim) {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(imgObj, 0, 0, width, height);
+          const base64 = canvas.toDataURL("image/jpeg", 0.75); // Compressed JPEG base64
+
+          if (isForCarouselIndex !== undefined) {
+            const currentImages = [...(itemForm.images || [])];
+            if (isForCarouselIndex === -1) {
+              setItemForm(prev => ({
+                ...prev,
+                images: [...(prev.images || []), base64]
+              }));
+            } else {
+              currentImages[isForCarouselIndex] = base64;
+              setItemForm(prev => ({
+                ...prev,
+                images: currentImages
+              }));
+            }
+          } else {
+            setItemForm(prev => ({ ...prev, image: base64 }));
+          }
+        }
+      };
+      imgObj.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCategoryThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imgObj = new Image();
+      imgObj.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 150;
+        canvas.height = 150;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(imgObj, 0, 0, 150, 150);
+          const base64 = canvas.toDataURL("image/jpeg", 0.7);
+          setCategoryForm(prev => ({ ...prev, thumbnail: base64 }));
+        }
+      };
+      imgObj.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleProfileLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imgObj = new Image();
+      imgObj.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 180;
+        canvas.height = 180;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(imgObj, 0, 0, 180, 180);
+          const base64 = canvas.toDataURL("image/jpeg", 0.85);
+          setInfoForm(prev => ({ ...prev, logoUrl: base64 }));
+        }
+      };
+      imgObj.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleProfileBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imgObj = new Image();
+      imgObj.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1000;
+        canvas.height = 400;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(imgObj, 0, 0, 1000, 400);
+          const base64 = canvas.toDataURL("image/jpeg", 0.75);
+          setInfoForm(prev => ({ ...prev, bannerUrl: base64 }));
+        }
+      };
+      imgObj.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
   };
 
   const triggerUpdate = () => {
@@ -340,6 +571,13 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
               <DollarSign className="w-4 h-4" />
               <span>Banking & Wallets</span>
             </button>
+            <button
+              onClick={() => { setActiveTab("settings"); setSelectedItem(null); setSelectedCategory(null); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${activeTab === "settings" ? "bg-brand-yellow text-black shadow-lg shadow-brand-yellow/10" : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"}`}
+            >
+              <Key className="w-4 h-4" />
+              <span>Credentials & Password</span>
+            </button>
           </nav>
         </div>
 
@@ -368,6 +606,7 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
               {activeTab === "items" && "MENU ITEM CATALOG"}
               {activeTab === "restaurant" && "RESTAURANT PROFILE MANAGEMENT"}
               {activeTab === "payments" && "BANKING & MOBILE WALLETS"}
+              {activeTab === "settings" && "SYSTEM ACCESS CREDENTIALS"}
             </h1>
           </div>
           <div className="flex items-center gap-2">
@@ -620,6 +859,19 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
                       placeholder="https://images.unsplash.com/..."
                       className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow/30 font-mono"
                     />
+                    <div className="mt-2 text-left">
+                      <label className="inline-flex items-center gap-2 cursor-pointer bg-zinc-900 border border-white/5 hover:border-brand-yellow/30 text-zinc-300 hover:text-white rounded-xl px-3.5 py-2 text-xs font-sans font-bold transition-style">
+                        <Upload className="w-3.5 h-3.5 text-brand-yellow" />
+                        <span>Upload Thumbnail</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleCategoryThumbnailChange}
+                          className="hidden"
+                        />
+                      </label>
+                      <span className="text-[8px] text-zinc-500 block mt-1">Saves as local compressed inline asset</span>
+                    </div>
                   </div>
                 </div>
 
@@ -827,6 +1079,20 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
                         className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl pl-10 pr-4 py-3 text-xs text-white focus:outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow/30 font-mono"
                       />
                     </div>
+                    {/* Image File Selector */}
+                    <div className="mt-2 text-left">
+                      <label className="inline-flex items-center gap-2 cursor-pointer bg-zinc-900 border border-white/5 hover:border-brand-yellow/30 text-zinc-300 hover:text-white rounded-xl px-3.5 py-2.5 text-xs transition-style font-sans font-bold">
+                        <Upload className="w-3.5 h-3.5 text-brand-yellow" />
+                        <span>Upload Image File</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleImageFileChange(e)}
+                          className="hidden"
+                        />
+                      </label>
+                      <span className="text-[8px] text-zinc-500 block mt-1">Compressed & cached locally</span>
+                    </div>
                   </div>
 
                   {/* Image Preview Window */}
@@ -841,13 +1107,49 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
                           onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=120&h=120&q=80" }}
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-zinc-700">NA</div>
+                        <div className="w-full h-full flex items-center justify-center text-zinc-700 font-mono text-[9px]">NA</div>
                       )}
                     </div>
-                    <div className="overflow-hidden">
+                    <div className="overflow-hidden text-left">
                       <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Real-time Image Preview</span>
-                      <span className="text-[9px] text-brand-yellow font-mono truncate block max-w-[180px]">{itemForm.image || "No Address Added"}</span>
+                      <span className="text-[8px] text-brand-yellow font-mono truncate block max-w-[120px]">{itemForm.image ? "Address Configured" : "No Address Added"}</span>
                     </div>
+                  </div>
+
+                  {/* Additional Carousel Images */}
+                  <div className="md:col-span-3 bg-zinc-950/20 p-4 border border-white/5 rounded-2xl space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block">
+                      Additional Carousel Images ({itemForm.images?.length || 0}) / Optional
+                    </label>
+                    <div className="flex flex-wrap gap-2.5 items-center">
+                      {(itemForm.images || []).map((img, idx) => (
+                        <div key={idx} className="relative w-14 h-14 bg-zinc-900 rounded-lg overflow-hidden border border-white/5 group shadow">
+                          <img src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = (itemForm.images || []).filter((_, i) => i !== idx);
+                              setItemForm(prev => ({ ...prev, images: updated }));
+                            }}
+                            className="absolute inset-0 bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer text-brand-red font-bold"
+                            title="Remove Image"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                      <label className="w-14 h-14 bg-zinc-950 border border-dashed border-white/10 hover:border-brand-yellow/20 rounded-lg flex flex-col items-center justify-center text-zinc-500 hover:text-brand-yellow text-center p-1 cursor-pointer transition-all">
+                        <Plus className="w-3.5 h-3.5" />
+                        <span className="text-[8px] font-black uppercase mt-1">Upload</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleImageFileChange(e, -1)}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                    <span className="text-[9px] text-zinc-500 block">Upload multiple additional photos of this dish for the details carousel.</span>
                   </div>
 
                   {/* Description Box */}
@@ -923,88 +1225,254 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
                 </div>
               </form>
             ) : (
-              <div className="overflow-x-auto border border-white/[0.06] rounded-2xl bg-zinc-950">
-                <table className="w-full text-left text-xs text-zinc-300 font-light select-none">
-                  <thead className="bg-zinc-900 text-white border-b border-white/[0.06]">
-                    <tr>
-                      <th className="px-5 py-4 font-black uppercase tracking-wider text-[10px]">Dish Preview</th>
-                      <th className="px-4 py-4 font-black uppercase tracking-wider text-[10px]">Assigned Category</th>
-                      <th className="px-4 py-4 font-black uppercase tracking-wider text-[10px]">Price (ETB)</th>
-                      <th className="px-4 py-4 font-black uppercase tracking-wider text-[10px]">Cooking Spec</th>
-                      <th className="px-4 py-4 font-black uppercase tracking-wider text-[10px]">Features</th>
-                      <th className="px-5 py-4 font-black uppercase tracking-wider text-[10px] text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/[0.04]">
-                    {menuItems.map(item => (
-                      <tr key={item.id} className="hover:bg-white/[0.01] transition-all">
-                        {/* Preview and details */}
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3.5">
-                            <div className="w-11 h-11 rounded-lg bg-zinc-900 overflow-hidden border border-white/5 shrink-0 shadow-inner">
-                              <img 
-                                src={item.image} 
-                                alt={item.name} 
-                                className="w-full h-full object-cover"
-                                referrerPolicy="no-referrer"
-                              />
-                            </div>
-                            <div>
-                              <h4 className="font-extrabold text-white uppercase text-[11px] leading-tight">{item.name}</h4>
-                              <p className="text-[9px] text-zinc-500 font-medium truncate max-w-xs mt-0.5">{item.ingredients || "No custom ingredients defined"}</p>
-                            </div>
+              <div className="space-y-4 text-left">
+                {/* Advanced Filtering & Sorting Section */}
+                <div className="p-4 rounded-2xl bg-zinc-950 border border-white/[0.04] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Search input field */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-zinc-500 tracking-wider">Search dishes</label>
+                    <input
+                      type="text"
+                      placeholder="Search items or ingredients..."
+                      value={searchTerm}
+                      onChange={(e) => { setSearchTerm(e.target.value); setAdminCurrentPage(1); }}
+                      className="w-full bg-zinc-900 border border-white/5 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans leading-tight"
+                    />
+                  </div>
+
+                  {/* Category dropdown selector */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-zinc-500 tracking-wider">Specific Category</label>
+                    <select
+                      value={selectedFilterCategory}
+                      onChange={(e) => { setSelectedFilterCategory(e.target.value); setAdminCurrentPage(1); }}
+                      className="w-full bg-zinc-900 border border-white/5 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans cursor-pointer"
+                    >
+                      <option value="all">All Categories</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>{cat.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Feature Tag selector */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-zinc-500 tracking-wider">Highlight Tag</label>
+                    <select
+                      value={selectedFilterTag}
+                      onChange={(e) => { setSelectedFilterTag(e.target.value); setAdminCurrentPage(1); }}
+                      className="w-full bg-zinc-900 border border-white/5 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans cursor-pointer"
+                    >
+                      <option value="all">All Specialties</option>
+                      <option value="popular">Popular Dishes</option>
+                      <option value="chef">Chef's Specialty</option>
+                      <option value="featured">Featured Hero Section</option>
+                    </select>
+                  </div>
+
+                  {/* Analytics Sorting selector */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] uppercase font-bold text-zinc-500 tracking-wider font-mono text-brand-yellow">Sort Order</label>
+                    <select
+                      value={sortBy}
+                      onChange={(e) => setSortBy(e.target.value)}
+                      className="w-full bg-zinc-900 border border-white/5 rounded-xl px-3 py-2 text-xs text-brand-yellow focus:outline-none focus:border-brand-yellow font-sans font-bold cursor-pointer"
+                    >
+                      <option value="name_asc">Name (A to Z)</option>
+                      <option value="price_asc">Price: Low to High</option>
+                      <option value="price_desc">Price: High to Low</option>
+                      <option value="views_desc">⚡ View Analytics (Highest Views)</option>
+                      <option value="rating_desc">★ Customer Rating (Highest First)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Sub-calculated fields */}
+                {(() => {
+                  const filteredItems = menuItems.filter(item => {
+                    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                          (item.ingredients && item.ingredients.toLowerCase().includes(searchTerm.toLowerCase()));
+                    const matchesCategory = selectedFilterCategory === "all" || item.category === selectedFilterCategory;
+                    let matchesTag = true;
+                    if (selectedFilterTag === "popular") matchesTag = !!item.isPopular;
+                    else if (selectedFilterTag === "chef") matchesTag = !!item.isChefPick;
+                    else if (selectedFilterTag === "featured") matchesTag = !!item.isFeatured;
+                    return matchesSearch && matchesCategory && matchesTag;
+                  });
+
+                  const sortedItems = [...filteredItems].sort((a, b) => {
+                    if (sortBy === "price_asc") return a.price - b.price;
+                    if (sortBy === "price_desc") return b.price - a.price;
+                    if (sortBy === "views_desc") return (b.viewCount || 0) - (a.viewCount || 0);
+                    if (sortBy === "rating_desc") return (b.rating || 0) - (a.rating || 0);
+                    return a.name.localeCompare(b.name);
+                  });
+
+                  const totalItems = sortedItems.length;
+                  const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
+                  const activePage = Math.min(adminCurrentPage, totalPages);
+                  const startIndex = (activePage - 1) * itemsPerPage;
+                  const paginatedItems = sortedItems.slice(startIndex, startIndex + itemsPerPage);
+
+                  return (
+                    <>
+                      <div className="overflow-x-auto border border-white/[0.06] rounded-2xl bg-zinc-950">
+                        <table className="w-full text-left text-xs text-zinc-300 font-light select-none">
+                          <thead className="bg-zinc-900 border-b border-white/[0.06] text-white">
+                            <tr>
+                              <th className="px-5 py-4 font-black uppercase tracking-wider text-[10px]">Dish Preview</th>
+                              <th className="px-4 py-4 font-black uppercase tracking-wider text-[10px]">Assigned Category</th>
+                              <th className="px-4 py-4 font-black uppercase tracking-wider text-[10px]">Price (ETB)</th>
+                              <th className="px-4 py-4 font-black uppercase tracking-wider text-[10px]">View Analytics</th>
+                              <th className="px-4 py-4 font-black uppercase tracking-wider text-[10px]">Features</th>
+                              <th className="px-5 py-4 font-black uppercase tracking-wider text-[10px] text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/[0.04]">
+                            {paginatedItems.length === 0 ? (
+                              <tr>
+                                <td colSpan={6} className="text-center py-10 text-zinc-500 text-xs font-sans font-bold">
+                                  No dishes found matching the active configuration.
+                                </td>
+                              </tr>
+                            ) : (
+                              paginatedItems.map(item => (
+                                <tr key={item.id} className="hover:bg-white/[0.01] transition-all">
+                                  {/* Preview and details */}
+                                  <td className="px-5 py-4">
+                                    <div className="flex items-center gap-3.5">
+                                      <div className="w-11 h-11 rounded-lg bg-zinc-900 overflow-hidden border border-white/5 shrink-0 shadow-inner">
+                                        <img 
+                                          src={item.image} 
+                                          alt={item.name} 
+                                          className="w-full h-full object-cover"
+                                          referrerPolicy="no-referrer"
+                                        />
+                                      </div>
+                                      <div>
+                                        <h4 className="font-extrabold text-white uppercase text-[11px] leading-tight">{item.name}</h4>
+                                        <p className="text-[9px] text-zinc-500 font-medium truncate max-w-xs mt-0.5">{item.ingredients || "No custom ingredients defined"}</p>
+                                      </div>
+                                    </div>
+                                  </td>
+
+                                  {/* Category */}
+                                  <td className="px-4 py-4 text-zinc-400 uppercase font-mono text-[10px] font-black">
+                                    {item.category}
+                                  </td>
+
+                                  {/* Price */}
+                                  <td className="px-4 py-4 font-black text-brand-yellow font-mono">
+                                    {item.price.toFixed(2)} ETB
+                                  </td>
+
+                                  {/* View Counts and rating */}
+                                  <td className="px-4 py-4 text-zinc-400 font-mono text-[10px] space-y-0.5">
+                                    <div className="flex items-center gap-1 text-zinc-350 font-sans font-bold">
+                                      ⏱️ {item.prepTime || "N/A"}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-[9px] font-bold py-0.5 px-1.5 rounded bg-zinc-900 border border-white/5 w-fit text-brand-yellow font-mono">
+                                      ⚡ {item.viewCount || 0} Views
+                                    </div>
+                                  </td>
+
+                                  {/* Badges/Features status */}
+                                  <td className="px-4 py-4">
+                                    <div className="flex flex-wrap gap-1">
+                                      {item.isPopular && <span className="bg-brand-yellow/[0.08] text-brand-yellow border border-brand-yellow/15 text-[8px] font-black uppercase px-2 py-0.5 rounded-sm shadow-sm">Popular</span>}
+                                      {item.isChefPick && <span className="bg-brand-red/[0.08] text-brand-red border border-brand-red/15 text-[8px] font-black uppercase px-2 py-0.5 rounded-sm shadow-sm">Chef's Pick</span>}
+                                      {item.isFeatured && <span className="bg-cyan-400/[0.08] text-cyan-400 border border-cyan-400/15 text-[8px] font-black uppercase px-2 py-0.5 rounded-sm shadow-sm">Featured</span>}
+                                      {!item.isPopular && !item.isChefPick && !item.isFeatured && <span className="text-zinc-650 text-[9px]">Standard</span>}
+                                    </div>
+                                  </td>
+
+                                  {/* Action Operations */}
+                                  <td className="px-5 py-4 text-right">
+                                    <div className="inline-flex items-center gap-1.5 justify-end">
+                                      <button
+                                        onClick={() => handleOpenEditItem(item)}
+                                        className="w-8 h-8 rounded-lg bg-zinc-900 border border-white/5 hover:border-brand-yellow/30 hover:bg-brand-yellow/10 text-zinc-400 hover:text-brand-yellow flex items-center justify-center transition-all cursor-pointer"
+                                        title="Edit item specifications"
+                                      >
+                                        <Edit2 className="w-3.5 h-3.5" />
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteItem(item.id)}
+                                        className="w-8 h-8 rounded-lg bg-zinc-900 border border-white/5 hover:border-brand-red/30 hover:bg-brand-red/10 text-zinc-400 hover:text-brand-red flex items-center justify-center transition-all cursor-pointer"
+                                        title="Exterminate Dish"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Pagination Control Toolbar Block */}
+                      {totalPages > 1 && (
+                        <div className="bg-zinc-950 p-4 border border-white/[0.04] rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                          <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider font-mono">
+                            Page <span className="text-white">{activePage}</span> of <span className="text-white">{totalPages}</span> ({totalItems} Discovered Dishes)
                           </div>
-                        </td>
-
-                        {/* Category */}
-                        <td className="px-4 py-4 text-zinc-400 uppercase font-mono text-[10px] font-black">
-                          {item.category}
-                        </td>
-
-                        {/* Price (integrated price management) */}
-                        <td className="px-4 py-4 font-black text-brand-yellow font-mono">
-                          {item.price.toFixed(2)} ETB
-                        </td>
-
-                        {/* Prep time/calories */}
-                        <td className="px-4 py-4 text-zinc-400 font-mono text-[10px] space-y-0.5">
-                          <div className="flex items-center gap-1 text-zinc-350 font-sans font-bold">⏱️ {item.prepTime || "N/A"}</div>
-                          <div className="text-[9px] text-zinc-500 font-mono">🔥 {item.calories || "N/A"}</div>
-                        </td>
-
-                        {/* Badges/Features status */}
-                        <td className="px-4 py-4">
-                          <div className="flex flex-wrap gap-1">
-                            {item.isPopular && <span className="bg-brand-yellow/[0.08] text-brand-yellow border border-brand-yellow/15 text-[8px] font-black uppercase px-2 py-0.5 rounded-sm shadow-sm">Popular</span>}
-                            {item.isChefPick && <span className="bg-brand-red/[0.08] text-brand-red border border-brand-red/15 text-[8px] font-black uppercase px-2 py-0.5 rounded-sm shadow-sm">Chef's Pick</span>}
-                            {item.isFeatured && <span className="bg-cyan-400/[0.08] text-cyan-400 border border-cyan-400/15 text-[8px] font-black uppercase px-2 py-0.5 rounded-sm shadow-sm">Featured</span>}
-                            {!item.isPopular && !item.isChefPick && !item.isFeatured && <span className="text-zinc-650 text-[9px]">Standard</span>}
-                          </div>
-                        </td>
-
-                        {/* Action Operations */}
-                        <td className="px-5 py-4 text-right">
-                          <div className="inline-flex items-center gap-1.5 justify-end">
+                          
+                          <div className="flex items-center gap-2">
                             <button
-                              onClick={() => handleOpenEditItem(item)}
-                              className="w-8 h-8 rounded-lg bg-zinc-900 border border-white/5 hover:border-brand-yellow/30 hover:bg-brand-yellow/10 text-zinc-400 hover:text-brand-yellow flex items-center justify-center transition-all cursor-pointer"
-                              title="Edit item specifications"
+                              onClick={() => setAdminCurrentPage(prev => Math.max(1, prev - 1))}
+                              disabled={activePage === 1}
+                              className="w-8 h-8 rounded-lg border border-white/5 bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none transition-style cursor-pointer"
+                              title="Previous Page"
                             >
-                              <Edit2 className="w-3.5 h-3.5" />
+                              <ChevronLeft className="w-4 h-4" />
                             </button>
+
+                            {Array.from({ length: totalPages }).map((_, idx) => {
+                              const pNum = idx + 1;
+                              return (
+                                <button
+                                  key={pNum}
+                                  onClick={() => setAdminCurrentPage(pNum)}
+                                  className={`w-8 h-8 rounded-lg text-xs font-mono font-black ${
+                                    activePage === pNum 
+                                      ? "bg-brand-yellow text-black border-brand-yellow/35 shadow-lg shadow-brand-yellow/5"
+                                      : "bg-zinc-900 border border-white/5 text-zinc-400 hover:text-white"
+                                  } transition-style cursor-pointer`}
+                                >
+                                  {pNum}
+                                </button>
+                              );
+                            })}
+
                             <button
-                              onClick={() => handleDeleteItem(item.id)}
-                              className="w-8 h-8 rounded-lg bg-zinc-900 border border-white/5 hover:border-brand-red/30 hover:bg-brand-red/10 text-zinc-400 hover:text-brand-red flex items-center justify-center transition-all cursor-pointer"
-                              title="Exterminate Dish"
+                              onClick={() => setAdminCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                              disabled={activePage === totalPages}
+                              className="w-8 h-8 rounded-lg border border-white/5 bg-zinc-900 text-zinc-400 hover:text-white flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none transition-style cursor-pointer"
+                              title="Next Page"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <ChevronRight className="w-4 h-4" />
                             </button>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] text-zinc-500 uppercase tracking-widest font-black">Limit</span>
+                            <select
+                              value={itemsPerPage}
+                              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setAdminCurrentPage(1); }}
+                              className="bg-zinc-900 border border-white/5 rounded-lg px-2 py-1 text-xs text-white"
+                            >
+                              <option value="5">5</option>
+                              <option value="10">10</option>
+                              <option value="20">20</option>
+                            </select>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -1019,8 +1487,77 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               
-              {/* Mission */}
+              {/* Brand Logo & Banner Customization */}
               <div className="space-y-1.5 md:col-span-2">
+                <span className="text-[9.5px] font-black uppercase tracking-widest text-brand-yellow/80 font-mono">Brand Identity Visual Customization</span>
+              </div>
+
+              {/* brand logo Url / upload */}
+              <div className="space-y-1.5 bg-zinc-950 p-4 border border-white/[0.04] rounded-xl flex flex-col md:flex-row gap-4 items-center">
+                <div className="w-16 h-16 rounded-full overflow-hidden border border-brand-yellow shrink-0 bg-neutral-900 flex items-center justify-center">
+                  {infoForm.logoUrl ? (
+                    <img src={infoForm.logoUrl} alt="Logo preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-[9px] text-zinc-550 font-black uppercase font-mono">No Custom Logo</span>
+                  )}
+                </div>
+                <div className="flex-1 w-full space-y-2 text-left">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Custom Restaurant Brand Logo</label>
+                    <label className="bg-brand-yellow/10 hover:bg-brand-yellow/20 text-brand-yellow px-2.5 py-1 rounded text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer">
+                      <span>Upload Logo File</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProfileLogoChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                  <input
+                    type="text"
+                    value={infoForm.logoUrl || ""}
+                    onChange={e => setInfoForm({ ...infoForm, logoUrl: e.target.value })}
+                    placeholder="Or enter brand logo image web URL..."
+                    className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow"
+                  />
+                </div>
+              </div>
+
+              {/* brand banner Url / upload */}
+              <div className="space-y-1.5 bg-zinc-950 p-4 border border-white/[0.04] rounded-xl flex flex-col md:flex-row gap-4 items-center">
+                <div className="w-24 h-16 rounded-lg overflow-hidden border border-white/[0.08] shrink-0 bg-neutral-900 flex items-center justify-center">
+                  {infoForm.bannerUrl ? (
+                    <img src={infoForm.bannerUrl} alt="Banner preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-[9px] text-zinc-550 font-black uppercase font-mono">No Custom Banner</span>
+                  )}
+                </div>
+                <div className="flex-1 w-full space-y-2 text-left">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">Restaurant Hero Banner Image</label>
+                    <label className="bg-brand-yellow/10 hover:bg-brand-yellow/20 text-brand-yellow px-2.5 py-1 rounded text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer">
+                      <span>Upload Banner File</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProfileBannerChange}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                  <input
+                    type="text"
+                    value={infoForm.bannerUrl || ""}
+                    onChange={e => setInfoForm({ ...infoForm, bannerUrl: e.target.value })}
+                    placeholder="Or enter hero banner image web URL..."
+                    className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow"
+                  />
+                </div>
+              </div>
+
+              {/* Mission */}
+              <div className="space-y-1.5 md:col-span-2 border-t border-white/[0.04] pt-4 text-left">
                 <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 block ml-0.5">The Core Mission (Hero About text)</label>
                 <textarea
                   rows={3}
@@ -1410,6 +1947,158 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
               </button>
             </div>
           </form>
+        )}
+
+        {/* Tab 7: CUSTOM PASSWORD CHANGE INTERFACE */}
+        {activeTab === "settings" && (
+          <div className="max-w-xl mx-auto space-y-6 text-left">
+            {/* Live Profile Credentials Summary Block */}
+            <div className="bg-zinc-950 p-6 border border-white/[0.05] rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <span className="text-[10px] text-brand-yellow font-black uppercase tracking-wider font-mono">Current Administrative Account Profile</span>
+                <h4 className="text-sm font-black text-white uppercase tracking-tight mt-1">
+                  Active Admin Email: <span className="text-brand-yellow lowercase font-mono font-bold">{restaurantInfo.adminEmail || "admin@wowburger.et"}</span>
+                </h4>
+                <p className="text-[9px] text-zinc-550 mt-1 leading-relaxed">
+                  To secure dashboard credentials, users can request a secure 6-digit numeric authentication pass-key sent directly to the email registered in the database file.
+                </p>
+              </div>
+            </div>
+
+            {/* Simulated Admin Mailbox Console Panel */}
+            {simulatedEmailInbox && (
+              <div className="bg-zinc-900 border border-brand-yellow/30 rounded-2xl p-4 space-y-3 shadow-xl">
+                <div className="flex items-center justify-between border-b border-white/[0.06] pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-yellow opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-yellow"></span>
+                    </span>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-brand-yellow font-mono">Simulated administrator email terminal</span>
+                  </div>
+                  <span className="text-[8px] font-mono text-zinc-500">Received at {simulatedEmailInbox.receivedAt}</span>
+                </div>
+                
+                <div className="bg-black/40 rounded-xl p-3.5 space-y-2 border border-white/[0.03] text-xs">
+                  <div className="grid grid-cols-6 gap-1 text-[10px] border-b border-white/[0.04] pb-1.5 font-mono text-zinc-400">
+                    <span className="font-extrabold uppercase col-span-1">To:</span>
+                    <span className="col-span-5 text-white lowercase">{simulatedEmailInbox.to}</span>
+                    <span className="font-extrabold uppercase col-span-1">From:</span>
+                    <span className="col-span-5 text-zinc-300">security@wowburger-internal.net</span>
+                    <span className="font-extrabold uppercase col-span-1">Subject:</span>
+                    <span className="col-span-5 text-brand-yellow font-bold text-[9.5px]">{simulatedEmailInbox.subject}</span>
+                  </div>
+                  
+                  <p className="text-[10px] text-zinc-300 leading-normal font-sans py-1 whitespace-pre-line">
+                    {simulatedEmailInbox.body}
+                  </p>
+
+                  <div className="pt-2 border-t border-white/[0.04] flex items-center justify-between">
+                    <span className="text-[9px] text-zinc-500 font-mono">Use this 6-digit code to finalize credential update below.</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEnteredCode(simulatedEmailInbox.code);
+                        alert(`Code '${simulatedEmailInbox.code}' has been auto-copied and entered!`);
+                      }}
+                      className="bg-brand-yellow/15 hover:bg-brand-yellow/25 text-brand-yellow px-2.5 py-1 rounded text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer"
+                    >
+                      Auto-Copy Code
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+              {/* Reset dispatch buttons card */}
+              <div className="md:col-span-5 bg-zinc-950 p-5 rounded-2xl border border-white/[0.05] space-y-4">
+                <span className="text-[9px] uppercase font-bold text-zinc-500 block tracking-widest font-mono">System Reset Authorization</span>
+                <p className="text-[10px] text-zinc-400 leading-relaxed font-sans">
+                  The admin password update requires email validation. Click below to generate and dispatch the authentication pass-key code message.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSendVerificationCode}
+                  className="w-full bg-zinc-900 hover:bg-brand-yellow hover:text-black border border-white/5 text-xs font-black uppercase tracking-wider py-3.5 rounded-xl transition-all cursor-pointer text-white shadow-md active:scale-98 flex items-center justify-center gap-1.5"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>{activeGeneratedCode ? "Regenerate Code" : "Send Verification Email"}</span>
+                </button>
+              </div>
+
+              {/* Main Submit update Credentials Card */}
+              <form onSubmit={handleSavePassword} className="md:col-span-7 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black border border-brand-yellow/20 rounded-2xl p-6 space-y-4">
+                <h3 className="text-xs font-black uppercase tracking-wider text-brand-yellow border-b border-white/[0.06] pb-3 mb-1">
+                  Authorize & Update Password
+                </h3>
+
+                {passwordStatusMsg.text && (
+                  <div className={`p-3 rounded-xl border text-[10px] font-sans font-bold flex items-center gap-2 ${
+                    passwordStatusMsg.type === "success" 
+                      ? "bg-green-500/10 border-green-500/25 text-green-400" 
+                      : "bg-brand-red/10 border-brand-red/25 text-brand-red"
+                  }`}>
+                    {passwordStatusMsg.type === "success" ? <CheckCircle className="w-3.5 h-3.5 shrink-0" /> : <X className="w-3.5 h-3.5 shrink-0" />}
+                    <span>{passwordStatusMsg.text}</span>
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  {/* Verification Code input field */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] uppercase font-black text-zinc-400 tracking-wider flex items-center justify-between">
+                      <span>6-Digit Verification Code *</span>
+                      <span className="text-brand-yellow lowercase font-mono">Required</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={enteredCode}
+                      onChange={(e) => setEnteredCode(e.target.value.replace(/\D/g, ""))}
+                      placeholder="Enter the 6-digit code received"
+                      className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-mono text-center tracking-widest text-[13px]"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[9px] uppercase font-black text-zinc-400 tracking-wider">New Administrative Password *</label>
+                    <input
+                      type="password"
+                      required
+                      value={passwordForm.newPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                      placeholder="Minimum 4 characters"
+                      className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[9px] uppercase font-black text-zinc-400 tracking-wider">Confirm New Password *</label>
+                    <input
+                      type="password"
+                      required
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                      placeholder="Re-type new password"
+                      className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-white/[0.04]">
+                  <button
+                    type="submit"
+                    className="w-full bg-brand-yellow hover:bg-yellow-500 text-black px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-brand-yellow/5 active:scale-98"
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                    <span>Verify & Update Password</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
         )}
       </main>
     </div>

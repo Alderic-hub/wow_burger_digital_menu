@@ -4,9 +4,11 @@ import { Lock, Mail, ArrowRight, Sparkles, Home } from "lucide-react";
 interface AdminLoginProps {
   onLoginSuccess: () => void;
   onGoHome: () => void;
+  adminPassword?: string;
+  adminEmail?: string;
 }
 
-export default function AdminLogin({ onLoginSuccess, onGoHome }: AdminLoginProps) {
+export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "admin", adminEmail = "admin@wowburger.et" }: AdminLoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -19,8 +21,18 @@ export default function AdminLogin({ onLoginSuccess, onGoHome }: AdminLoginProps
 
     // Simulate authenticating session
     setTimeout(() => {
-      if (email.trim().toLowerCase() === "admin@wowburger.et" && password === "admin") {
+      // Prioritize live adminEmail and adminPassword, fallback to localStorage option, finally defaulting
+      const localPassword = localStorage.getItem("wow_admin_password") || "admin";
+      const targetPassword = adminPassword !== "admin" ? adminPassword : localPassword;
+
+      const localEmail = localStorage.getItem("wow_admin_email") || "admin@wowburger.et";
+      const targetEmail = adminEmail !== "admin@wowburger.et" ? adminEmail : localEmail;
+
+      if (email.trim().toLowerCase() === targetEmail.trim().toLowerCase() && password === targetPassword) {
         localStorage.setItem("wow_admin_token", "secure_session_token_2026");
+        // Maintain local storage sync
+        localStorage.setItem("wow_admin_password", targetPassword);
+        localStorage.setItem("wow_admin_email", targetEmail);
         onLoginSuccess();
       } else {
         setError("Invalid administrative credentials. Please verify your login details.");

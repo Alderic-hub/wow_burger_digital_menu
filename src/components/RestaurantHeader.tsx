@@ -7,16 +7,18 @@ interface RestaurantHeaderProps {
   onInfoClick: () => void;
   onBackClick: () => void;
   onPaymentClick?: () => void;
+  logoUrl?: string;
 }
 
-export default function RestaurantHeader({ currentPage, onInfoClick, onBackClick, onPaymentClick }: RestaurantHeaderProps) {
+export default function RestaurantHeader({ currentPage, onInfoClick, onBackClick, onPaymentClick, logoUrl }: RestaurantHeaderProps) {
+  const finalLogo = logoUrl || wowBurgerLogo;
   return (
     <header className="w-full z-30 px-4 py-3 bg-zinc-950 border-b border-white/[0.08] flex items-center justify-between shrink-0 select-none">
       {/* WOW Burger Branding Left side */}
       <div className="flex items-center gap-2.5">
-        <div className="w-8.5 h-8.5 rounded-full overflow-hidden border border-brand-yellow shadow-[0_0_12px_rgba(255,193,7,0.25)]">
+        <div className="w-8.5 h-8.5 rounded-full overflow-hidden border border-brand-yellow shadow-[0_0_12px_rgba(255,193,7,0.25)] bg-black">
           <img 
-            src={wowBurgerLogo} 
+            src={finalLogo} 
             alt="WOW Burger Logo" 
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"

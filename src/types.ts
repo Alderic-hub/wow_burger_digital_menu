@@ -13,6 +13,18 @@ export interface MenuItem {
   isChefPick?: boolean;
   isFeatured?: boolean;
   subcategory?: string; // e.g. "Classic Burger", "Cheeseburger", "Fries"
+  images?: string[]; // Array of additional image URLs for the details carousel
+  viewCount?: number; // Analytical counter tracking item click-throughs
+}
+
+export interface Employee {
+  id: string;
+  name: string;
+  username: string;
+  role: "Admin" | "Manager" | "Staff" | "Cashier";
+  permissions: string[]; // e.g. ["edit_menu", "edit_categories", "edit_settings", "view_analytics"]
+  isActive: boolean;
+  createdAt: string;
 }
 
 export interface Category {
@@ -39,6 +51,10 @@ export interface RestaurantInfo {
   telegram: string;
   showPopularSection?: boolean;
   bankAccounts?: BankAccount[];
+  adminPassword?: string;
+  adminEmail?: string;
+  logoUrl?: string;
+  bannerUrl?: string;
 }
 
 export interface BankAccount {

@@ -1,4 +1,4 @@
-import { MenuItem, Category, RestaurantInfo } from "./types";
+import { MenuItem, Category, RestaurantInfo, Employee } from "./types";
 import { CATEGORIES, MENU_ITEMS } from "./menuData";
 import { 
   collection, 
@@ -47,17 +47,50 @@ export const DEFAULT_RESTAURANT_INFO: RestaurantInfo = {
       logoUrl: "https://upload.wikimedia.org/wikipedia/commons/a/a2/Telebirr_logo.png",
       isActive: true
     }
-  ]
+  ],
+  adminPassword: "admin",
+  adminEmail: "admin@wowburger.et"
 };
+
+export const DEFAULT_EMPLOYEES: Employee[] = [
+  {
+    id: "emp-1",
+    name: "Michael Yohannes",
+    username: "michael.y",
+    role: "Admin",
+    permissions: ["edit_menu", "edit_categories", "edit_settings", "view_analytics"],
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: "emp-2",
+    name: "Selam Teklay",
+    username: "selam.t",
+    role: "Manager",
+    permissions: ["edit_menu", "edit_categories", "view_analytics"],
+    isActive: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: "emp-3",
+    name: "Abebe Kebede",
+    username: "abebe.k",
+    role: "Cashier",
+    permissions: ["view_analytics"],
+    isActive: true,
+    createdAt: new Date().toISOString()
+  }
+];
 
 // Initialize localStorage with preset menu list if empty
 export function initDB() {
-  const needsMigration = !localStorage.getItem("wow_db_migrated_v2");
+  const needsMigration = !localStorage.getItem("wow_db_migrated_v3");
   if (needsMigration) {
     localStorage.setItem("wow_menu_items", JSON.stringify(MENU_ITEMS));
     localStorage.setItem("wow_categories", JSON.stringify(CATEGORIES));
     localStorage.setItem("wow_restaurant_info", JSON.stringify(DEFAULT_RESTAURANT_INFO));
-    localStorage.setItem("wow_db_migrated_v2", "true");
+    localStorage.setItem("wow_employees", JSON.stringify(DEFAULT_EMPLOYEES));
+    localStorage.setItem("wow_db_migrated_v3", "true");
   } else {
     if (!localStorage.getItem("wow_menu_items")) {
       localStorage.setItem("wow_menu_items", JSON.stringify(MENU_ITEMS));
@@ -67,6 +100,9 @@ export function initDB() {
     }
     if (!localStorage.getItem("wow_restaurant_info")) {
       localStorage.setItem("wow_restaurant_info", JSON.stringify(DEFAULT_RESTAURANT_INFO));
+    }
+    if (!localStorage.getItem("wow_employees")) {
+      localStorage.setItem("wow_employees", JSON.stringify(DEFAULT_EMPLOYEES));
     }
   }
   testConnection();
@@ -92,48 +128,6 @@ async function testConnection() {
 // Bootstrap Firestore collections if they are currently unpopulated or need migration
 export async function bootstrapFirestoreIfEmpty() {
   try {
-    const hasRemoteMigrated = localStorage.getItem("wow_remote_migrated_v2");
-    
-    if (!hasRemoteMigrated) {
-      console.log("Migrating remote database to support updated premium category structure...");
-      
-      // Clear existing Categories and Menu Items collection
-      const menuCollRef = collection(db, "menu");
-      const menuSnapshot = await getDocs(menuCollRef);
-      for (const d of menuSnapshot.docs) {
-        await deleteDoc(doc(db, "menu", d.id));
-      }
-      
-      const catCollRef = collection(db, "categories");
-      const catSnapshot = await getDocs(catCollRef);
-      for (const d of catSnapshot.docs) {
-        await deleteDoc(doc(db, "categories", d.id));
-      }
-      
-      // Write new CATEGORIES
-      for (const cat of CATEGORIES) {
-        await setDoc(doc(db, "categories", cat.id), cat);
-      }
-      localStorage.setItem("wow_categories_last_sync", JSON.stringify(CATEGORIES));
-      
-      // Write new MENU_ITEMS
-      for (const item of MENU_ITEMS) {
-        await setDoc(doc(db, "menu", item.id), item);
-      }
-      localStorage.setItem("wow_menu_items_last_sync", JSON.stringify(MENU_ITEMS));
-      
-      // Bootstrap restaurant info if missing
-      const infoDocRef = doc(db, "restaurant", "info");
-      const infoSnapshot = await getDoc(infoDocRef);
-      if (!infoSnapshot.exists()) {
-        await setDoc(infoDocRef, DEFAULT_RESTAURANT_INFO);
-      }
-      
-      localStorage.setItem("wow_remote_migrated_v2", "true");
-      console.log("Migration complete!");
-      return;
-    }
-
     // Check & bootstrap menu
     const menuCollRef = collection(db, "menu");
     const menuSnapshot = await getDocs(menuCollRef);
@@ -162,6 +156,33 @@ export async function bootstrapFirestoreIfEmpty() {
     if (!infoSnapshot.exists()) {
       console.log("Firestore restaurant info is empty, bootstrapping default profile...");
       await setDoc(infoDocRef, DEFAULT_RESTAURANT_INFO);
+    } else {
+      // Ensure adminPassword and adminEmail exist in Remote document
+      const currentRemoteInfo = infoSnapshot.data() as RestaurantInfo;
+      let needsUpdate = false;
+      const updatedData: Partial<RestaurantInfo> = {};
+      if (!currentRemoteInfo.adminPassword) {
+        updatedData.adminPassword = "admin";
+        needsUpdate = true;
+      }
+      if (!currentRemoteInfo.adminEmail) {
+        updatedData.adminEmail = "admin@wowburger.et";
+        needsUpdate = true;
+      }
+      if (needsUpdate) {
+        await setDoc(infoDocRef, updatedData, { merge: true });
+      }
+    }
+
+    // Check & bootstrap employees
+    const empCollRef = collection(db, "employees");
+    const empSnapshot = await getDocs(empCollRef);
+    if (empSnapshot.empty) {
+      console.log("Firestore employees is empty, bootstrapping default staff...");
+      for (const emp of DEFAULT_EMPLOYEES) {
+        await setDoc(doc(db, "employees", emp.id), emp);
+      }
+      localStorage.setItem("wow_employees_last_sync", JSON.stringify(DEFAULT_EMPLOYEES));
     }
   } catch (error) {
     console.warn("Could not bootstrap Firestore (probably rules restriction on public or connection state):", error);
@@ -344,6 +365,89 @@ export async function saveRestaurantInfo(info: RestaurantInfo) {
     await setDoc(doc(db, path, "info"), info);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, `${path}/info`);
+  }
+}
+
+export function loadEmployees(): Employee[] {
+  initDB();
+  try {
+    return JSON.parse(localStorage.getItem("wow_employees") || "[]");
+  } catch {
+    return DEFAULT_EMPLOYEES;
+  }
+}
+
+export async function saveEmployees(employees: Employee[]) {
+  // Sync locally first
+  localStorage.setItem("wow_employees", JSON.stringify(employees));
+
+  // Sync to remote Firestore
+  const path = "employees";
+  try {
+    for (const emp of employees) {
+      await setDoc(doc(db, path, emp.id), emp);
+    }
+    // Delete shadow employees that were removed
+    const lastSyncStr = localStorage.getItem("wow_employees_last_sync") || "[]";
+    try {
+      const lastSync = JSON.parse(lastSyncStr) as Employee[];
+      const activeIds = new Set(employees.map((e) => e.id));
+      for (const oldEmp of lastSync) {
+        if (!activeIds.has(oldEmp.id)) {
+          await deleteDoc(doc(db, path, oldEmp.id));
+        }
+      }
+    } catch (e) {
+      console.warn("Diff sync error:", e);
+    }
+    localStorage.setItem("wow_employees_last_sync", JSON.stringify(employees));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export function subscribeEmployees(onUpdate: (employees: Employee[]) => void): () => void {
+  const path = "employees";
+  return onSnapshot(
+    collection(db, path),
+    (snapshot) => {
+      const employees: Employee[] = [];
+      snapshot.forEach((doc) => {
+        employees.push(doc.data() as Employee);
+      });
+      if (employees.length > 0) {
+        localStorage.setItem("wow_employees", JSON.stringify(employees));
+        onUpdate(employees);
+      }
+    },
+    (error) => {
+      handleFirestoreError(error, OperationType.GET, path);
+    }
+  );
+}
+
+export async function incrementItemViewCount(itemId: string) {
+  // Update local storage first
+  try {
+    const items = loadMenuItems();
+    const updated = items.map(item => {
+      if (item.id === itemId) {
+        return { ...item, viewCount: (item.viewCount || 0) + 1 };
+      }
+      return item;
+    });
+    localStorage.setItem("wow_menu_items", JSON.stringify(updated));
+
+    // Non-blocking update to firestore
+    const targetItem = updated.find(i => i.id === itemId);
+    if (targetItem) {
+      const docRef = doc(db, "menu", itemId);
+      setDoc(docRef, targetItem, { merge: true }).catch(err => {
+        console.warn("Could not increment remote view count asynchronously:", err);
+      });
+    }
+  } catch (err) {
+    console.warn("Error incrementing view count:", err);
   }
 }
 

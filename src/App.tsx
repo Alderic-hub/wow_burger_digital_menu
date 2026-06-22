@@ -13,7 +13,8 @@ import {
   bootstrapFirestoreIfEmpty,
   subscribeMenuItems,
   subscribeCategories,
-  subscribeRestaurantInfo
+  subscribeRestaurantInfo,
+  incrementItemViewCount
 } from "./dbService";
 import RestaurantHeader from "./components/RestaurantHeader";
 import DetailViewOverlay from "./components/DetailViewOverlay";
@@ -137,6 +138,8 @@ export default function App() {
       <AdminLogin 
         onLoginSuccess={() => setCurrentRoute("admin-dashboard")} 
         onGoHome={() => setCurrentRoute("customer")}
+        adminPassword={restaurantInfo?.adminPassword || "admin"}
+        adminEmail={restaurantInfo?.adminEmail || "admin@wowburger.et"}
       />
     );
   }
@@ -170,6 +173,7 @@ export default function App() {
           onInfoClick={() => setCurrentPage("info")}
           onBackClick={() => setCurrentPage("menu")}
           onPaymentClick={() => setCurrentPage("payment")}
+          logoUrl={restaurantInfo?.logoUrl}
         />
 
         {/* Center Main Dynamic Panel - Direct Menu Experience */}
@@ -181,7 +185,12 @@ export default function App() {
               categories={categories}
               favorites={favorites}
               onToggleFavorite={handleToggleFavorite}
-              onSelectItem={setSelectedItem}
+              onSelectItem={(item) => {
+                setSelectedItem(item);
+                if (item) {
+                  incrementItemViewCount(item.id);
+                }
+              }}
               restaurantInfo={restaurantInfo}
             />
           </div>
