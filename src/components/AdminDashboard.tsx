@@ -61,6 +61,10 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
     receivedAt: string;
   } | null>(null);
 
+  const [resetEmailInput, setResetEmailInput] = useState("");
+  const [isEmailSent, setIsEmailSent] = useState(false);
+  const [isCodeVerified, setIsCodeVerified] = useState(false);
+
   // Popular items curation search state & toggles
   const [popularSearch, setPopularSearch] = useState("");
 
@@ -177,7 +181,17 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
 
   // --- PASSWORD UPDATE & IDENTITY LOGIC ---
   const handleSendVerificationCode = () => {
+    setPasswordStatusMsg({ type: "", text: "" });
     const targetEmail = restaurantInfo.adminEmail || "admin@wowburger.et";
+    
+    if (resetEmailInput.trim().toLowerCase() !== targetEmail.toLowerCase()) {
+      setPasswordStatusMsg({
+        type: "error",
+        text: `The entered email Address (${resetEmailInput}) does not match our registered administrative profile.`
+      });
+      return;
+    }
+
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     
     setActiveGeneratedCode(code);
@@ -193,23 +207,36 @@ If you did not request this, please verify that system security parameters are h
       receivedAt: new Date().toLocaleTimeString()
     });
 
+    setIsEmailSent(true);
     setPasswordStatusMsg({
       type: "success",
       text: `A safe 6-digit verification code has been dispatched to ${targetEmail}!`
     });
   };
 
+  const handleVerifyCode = (codeToVerify?: string) => {
+    setPasswordStatusMsg({ type: "", text: "" });
+    const code = codeToVerify || enteredCode;
+    if (code === activeGeneratedCode && activeGeneratedCode !== "") {
+      setIsCodeVerified(true);
+      setPasswordStatusMsg({
+        type: "success",
+        text: "Passcode authorization successful! Create your brand new administrative password below."
+      });
+    } else {
+      setPasswordStatusMsg({
+        type: "error",
+        text: "Invalid verification code! Please check your administration email inbox closely."
+      });
+    }
+  };
+
   const handleSavePassword = (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordStatusMsg({ type: "", text: "" });
 
-    if (!activeGeneratedCode) {
-      setPasswordStatusMsg({ type: "error", text: "Please request a verification email code first!" });
-      return;
-    }
-
-    if (enteredCode !== activeGeneratedCode) {
-      setPasswordStatusMsg({ type: "error", text: "Invalid verification code! Please check your administration email inbox closely." });
+    if (!isCodeVerified) {
+      setPasswordStatusMsg({ type: "error", text: "Please authorize identity using the security code first!" });
       return;
     }
 
@@ -251,6 +278,9 @@ If you did not request this, please verify that system security parameters are h
     setEnteredCode("");
     setActiveGeneratedCode("");
     setSimulatedEmailInbox(null);
+    setResetEmailInput("");
+    setIsEmailSent(false);
+    setIsCodeVerified(false);
   };
 
   // --- IMAGE UPLOAD & CANVAS RESIZING SYSTEM ---
@@ -576,7 +606,7 @@ If you did not request this, please verify that system security parameters are h
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${activeTab === "settings" ? "bg-brand-yellow text-black shadow-lg shadow-brand-yellow/10" : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"}`}
             >
               <Key className="w-4 h-4" />
-              <span>Credentials & Password</span>
+              <span>Reset Password</span>
             </button>
           </nav>
         </div>
@@ -606,7 +636,7 @@ If you did not request this, please verify that system security parameters are h
               {activeTab === "items" && "MENU ITEM CATALOG"}
               {activeTab === "restaurant" && "RESTAURANT PROFILE MANAGEMENT"}
               {activeTab === "payments" && "BANKING & MOBILE WALLETS"}
-              {activeTab === "settings" && "SYSTEM ACCESS CREDENTIALS"}
+              {activeTab === "settings" && "RESET PASSWORD"}
             </h1>
           </div>
           <div className="flex items-center gap-2">
@@ -1952,20 +1982,26 @@ If you did not request this, please verify that system security parameters are h
         {/* Tab 7: CUSTOM PASSWORD CHANGE INTERFACE */}
         {activeTab === "settings" && (
           <div className="max-w-xl mx-auto space-y-6 text-left">
-            {/* Live Profile Credentials Summary Block */}
-            <div className="bg-zinc-950 p-6 border border-white/[0.05] rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <span className="text-[10px] text-brand-yellow font-black uppercase tracking-wider font-mono">Current Administrative Account Profile</span>
-                <h4 className="text-sm font-black text-white uppercase tracking-tight mt-1">
-                  Active Admin Email: <span className="text-brand-yellow lowercase font-mono font-bold">{restaurantInfo.adminEmail || "admin@wowburger.et"}</span>
-                </h4>
-                <p className="text-[9px] text-zinc-550 mt-1 leading-relaxed">
-                  To secure dashboard credentials, users can request a secure 6-digit numeric authentication pass-key sent directly to the email registered in the database file.
-                </p>
-              </div>
+            {/* Step Guides Indicator Header */}
+            <div className="bg-zinc-950 p-6 border border-white/[0.05] rounded-2xl">
+              <span className="text-[10px] text-brand-yellow font-black uppercase tracking-wider font-mono">
+                {!isEmailSent && "Step 1 of 3: Request Security Code"}
+                {isEmailSent && !isCodeVerified && "Step 2 of 3: Authorize Identity"}
+                {isCodeVerified && "Step 3 of 3: Create New Password"}
+              </span>
+              <h4 className="text-sm font-black text-white uppercase tracking-tight mt-1">
+                {!isEmailSent && "Verify Administrative Registered Email"}
+                {isEmailSent && !isCodeVerified && "Enter Validation Verification Key"}
+                {isCodeVerified && "Set Secure Administrative Password"}
+              </h4>
+              <p className="text-[9.5px] text-zinc-500 mt-1 leading-relaxed font-sans">
+                {!isEmailSent && `To retrieve authorization permission, enter the registered email account prefix (${restaurantInfo.adminEmail || "admin@wowburger.et"}).`}
+                {isEmailSent && !isCodeVerified && "A simulated validation email has been sent to your administrative server box with a 6-digit access code."}
+                {isCodeVerified && "Credentials successfully authorized! Create your new durable administrative desktop dashboard password below."}
+              </p>
             </div>
 
-            {/* Simulated Admin Mailbox Console Panel */}
+            {/* Simulated Admin Mailbox Console Panel - Visible ONLY when email code is dispatched */}
             {simulatedEmailInbox && (
               <div className="bg-zinc-900 border border-brand-yellow/30 rounded-2xl p-4 space-y-3 shadow-xl">
                 <div className="flex items-center justify-between border-b border-white/[0.06] pb-2">
@@ -1974,7 +2010,7 @@ If you did not request this, please verify that system security parameters are h
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-yellow opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-yellow"></span>
                     </span>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-brand-yellow font-mono">Simulated administrator email terminal</span>
+                    <span className="text-[10px] font-black uppercase tracking-wider text-brand-yellow font-mono">Simulated Dashboard Mailbox Terminal</span>
                   </div>
                   <span className="text-[8px] font-mono text-zinc-500">Received at {simulatedEmailInbox.receivedAt}</span>
                 </div>
@@ -1989,7 +2025,7 @@ If you did not request this, please verify that system security parameters are h
                     <span className="col-span-5 text-brand-yellow font-bold text-[9.5px]">{simulatedEmailInbox.subject}</span>
                   </div>
                   
-                  <p className="text-[10px] text-zinc-300 leading-normal font-sans py-1 whitespace-pre-line">
+                  <p className="text-[10px] text-zinc-300 leading-normal font-sans py-1 whitespace-pre-line text-xs font-medium">
                     {simulatedEmailInbox.body}
                   </p>
 
@@ -1999,69 +2035,116 @@ If you did not request this, please verify that system security parameters are h
                       type="button"
                       onClick={() => {
                         setEnteredCode(simulatedEmailInbox.code);
-                        alert(`Code '${simulatedEmailInbox.code}' has been auto-copied and entered!`);
+                        handleVerifyCode(simulatedEmailInbox.code);
+                        alert(`Code '${simulatedEmailInbox.code}' has been auto-copied and verified!`);
                       }}
                       className="bg-brand-yellow/15 hover:bg-brand-yellow/25 text-brand-yellow px-2.5 py-1 rounded text-[8px] font-black uppercase tracking-wider transition-all cursor-pointer"
                     >
-                      Auto-Copy Code
+                      Auto-Copy & Verify Code
                     </button>
                   </div>
                 </div>
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-              {/* Reset dispatch buttons card */}
-              <div className="md:col-span-5 bg-zinc-950 p-5 rounded-2xl border border-white/[0.05] space-y-4">
-                <span className="text-[9px] uppercase font-bold text-zinc-500 block tracking-widest font-mono">System Reset Authorization</span>
-                <p className="text-[10px] text-zinc-400 leading-relaxed font-sans">
-                  The admin password update requires email validation. Click below to generate and dispatch the authentication pass-key code message.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleSendVerificationCode}
-                  className="w-full bg-zinc-900 hover:bg-brand-yellow hover:text-black border border-white/5 text-xs font-black uppercase tracking-wider py-3.5 rounded-xl transition-all cursor-pointer text-white shadow-md active:scale-98 flex items-center justify-center gap-1.5"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>{activeGeneratedCode ? "Regenerate Code" : "Send Verification Email"}</span>
-                </button>
+            {/* Error & Success Alerts message */}
+            {passwordStatusMsg.text && (
+              <div className={`p-3.5 rounded-xl border text-[10.5px] font-sans font-bold flex items-center gap-2 ${
+                passwordStatusMsg.type === "success" 
+                  ? "bg-green-500/10 border-green-500/25 text-green-400" 
+                  : "bg-brand-red/10 border-brand-red/25 text-brand-red"
+              }`}>
+                {passwordStatusMsg.type === "success" ? <CheckCircle className="w-4 h-4 shrink-0" /> : <X className="w-4 h-4 shrink-0" />}
+                <span>{passwordStatusMsg.text}</span>
               </div>
+            )}
 
-              {/* Main Submit update Credentials Card */}
-              <form onSubmit={handleSavePassword} className="md:col-span-7 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black border border-brand-yellow/20 rounded-2xl p-6 space-y-4">
-                <h3 className="text-xs font-black uppercase tracking-wider text-brand-yellow border-b border-white/[0.06] pb-3 mb-1">
-                  Authorize & Update Password
+            {/* PHASE 1: EMAIL ENTRY & DISPATCH */}
+            {!isEmailSent && !isCodeVerified && (
+              <div className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-black border border-white/[0.08] rounded-2xl p-6 space-y-4">
+                <div className="space-y-1.5 text-left">
+                  <label className="text-[9.5px] uppercase font-black text-zinc-400 tracking-wider flex items-center justify-between">
+                    <span>Registered Administration Email *</span>
+                    <span className="text-brand-yellow text-[8.5px] lowercase font-mono">Matches registration record</span>
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={resetEmailInput}
+                    onChange={(e) => setResetEmailInput(e.target.value)}
+                    placeholder="Enter email e.g. admin@wowburger.et"
+                    className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans placeholder-zinc-650"
+                  />
+                </div>
+
+                {resetEmailInput.trim().length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleSendVerificationCode}
+                    className="w-full bg-brand-yellow hover:bg-yellow-500 text-black px-6 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-brand-yellow/5 active:scale-98"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Send Confirmation Email</span>
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* PHASE 2: VERIFICATION CODE ENTRY BOX */}
+            {isEmailSent && !isCodeVerified && (
+              <div className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-black border border-white/[0.08] rounded-2xl p-6 space-y-4 text-center">
+                <span className="text-zinc-400 text-xs font-semibold block max-w-md mx-auto leading-relaxed">
+                  Please enter the 6-digit numeric verification code received in your administrator inbox below to unlock editing:
+                </span>
+
+                <div className="max-w-xs mx-auto space-y-3">
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={enteredCode}
+                    onChange={(e) => setEnteredCode(e.target.value.replace(/\D/g, ""))}
+                    placeholder="000000"
+                    className="w-full bg-zinc-950 border border-brand-yellow/30 rounded-xl px-4 py-3 text-base text-brand-yellow focus:outline-none focus:border-brand-yellow font-mono text-center tracking-[0.5em] font-black text-[15px]"
+                  />
+
+                  <div className="flex gap-2.5 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEmailSent(false);
+                        setEnteredCode("");
+                        setActiveGeneratedCode("");
+                        setSimulatedEmailInbox(null);
+                        setPasswordStatusMsg({ type: "", text: "" });
+                      }}
+                      className="w-1/2 bg-zinc-900 hover:bg-zinc-850 hover:text-white border border-white/5 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-zinc-400 transition-all cursor-pointer"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleVerifyCode()}
+                      disabled={enteredCode.length !== 6}
+                      className="w-1/2 bg-brand-yellow hover:bg-yellow-500 disabled:opacity-40 disabled:hover:bg-brand-yellow text-black py-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1"
+                    >
+                      <CheckCircle className="w-3 h-3" />
+                      <span>Verify Code</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* PHASE 3: SECURE CHOOSE NEW PASSWORD CONTENT */}
+            {isCodeVerified && (
+              <form onSubmit={handleSavePassword} className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-black border border-brand-yellow/20 rounded-2xl p-6 space-y-4">
+                <h3 className="text-xs font-black uppercase tracking-wider text-brand-yellow border-b border-white/[0.06] pb-3 mb-1 flex items-center gap-1.5">
+                  <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
+                  <span>Authorized Identity Check - Settings Unlocked</span>
                 </h3>
 
-                {passwordStatusMsg.text && (
-                  <div className={`p-3 rounded-xl border text-[10px] font-sans font-bold flex items-center gap-2 ${
-                    passwordStatusMsg.type === "success" 
-                      ? "bg-green-500/10 border-green-500/25 text-green-400" 
-                      : "bg-brand-red/10 border-brand-red/25 text-brand-red"
-                  }`}>
-                    {passwordStatusMsg.type === "success" ? <CheckCircle className="w-3.5 h-3.5 shrink-0" /> : <X className="w-3.5 h-3.5 shrink-0" />}
-                    <span>{passwordStatusMsg.text}</span>
-                  </div>
-                )}
-
                 <div className="space-y-4">
-                  {/* Verification Code input field */}
-                  <div className="space-y-1">
-                    <label className="text-[9px] uppercase font-black text-zinc-400 tracking-wider flex items-center justify-between">
-                      <span>6-Digit Verification Code *</span>
-                      <span className="text-brand-yellow lowercase font-mono">Required</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      maxLength={6}
-                      value={enteredCode}
-                      onChange={(e) => setEnteredCode(e.target.value.replace(/\D/g, ""))}
-                      placeholder="Enter the 6-digit code received"
-                      className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-mono text-center tracking-widest text-[13px]"
-                    />
-                  </div>
-
                   <div className="space-y-1">
                     <label className="text-[9px] uppercase font-black text-zinc-400 tracking-wider">New Administrative Password *</label>
                     <input
@@ -2090,14 +2173,14 @@ If you did not request this, please verify that system security parameters are h
                 <div className="pt-4 border-t border-white/[0.04]">
                   <button
                     type="submit"
-                    className="w-full bg-brand-yellow hover:bg-yellow-500 text-black px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-brand-yellow/5 active:scale-98"
+                    className="w-full bg-brand-yellow hover:bg-yellow-500 text-black px-6 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-brand-yellow/5 active:scale-98"
                   >
-                    <Key className="w-3.5 h-3.5" />
-                    <span>Verify & Update Password</span>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Password in Firestore Database</span>
                   </button>
                 </div>
               </form>
-            </div>
+            )}
           </div>
         )}
       </main>
