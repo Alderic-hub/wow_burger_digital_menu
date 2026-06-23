@@ -10,7 +10,8 @@ import {
   LayoutDashboard, FolderKanban, Utensils, Info, LogOut, 
   Plus, Trash2, Edit2, Check, QrCode, DollarSign, Image as ImageIcon, 
   Clock, Flame, Star, Save, Link as LinkIcon, RefreshCw, X, Eye, ThumbsUp,
-  Sparkles, Users, Key, Sliders, Upload, ChevronLeft, ChevronRight, CheckCircle
+  Sparkles, Users, Key, Sliders, Upload, ChevronLeft, ChevronRight, CheckCircle,
+  Menu
 } from "lucide-react";
 
 interface AdminDashboardProps {
@@ -22,6 +23,7 @@ type TabType = "overview" | "categories" | "items" | "restaurant" | "payments" |
 
 export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState<TabType>("overview");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
   // Data States
   const [menuItems, setMenuItems] = useState<MenuItem[]>(() => loadMenuItems());
@@ -33,6 +35,7 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [inspectingItem, setInspectingItem] = useState<MenuItem | null>(null);
 
   // Pagination & Filtering States for Menu Items Catalog
   const [searchTerm, setSearchTerm] = useState("");
@@ -46,7 +49,8 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
-    confirmPassword: ""
+    confirmPassword: "",
+    newAdminEmail: ""
   });
   const [passwordStatusMsg, setPasswordStatusMsg] = useState({ type: "", text: "" });
 
@@ -182,7 +186,7 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData }: AdminD
   // --- PASSWORD UPDATE & IDENTITY LOGIC ---
   const handleSendVerificationCode = () => {
     setPasswordStatusMsg({ type: "", text: "" });
-    const targetEmail = restaurantInfo.adminEmail || "admin@wowburger.et";
+    const targetEmail = restaurantInfo.adminEmail || "monstergame246@gmail.com";
     
     if (resetEmailInput.trim().toLowerCase() !== targetEmail.toLowerCase()) {
       setPasswordStatusMsg({
@@ -219,9 +223,15 @@ If you did not request this, please verify that system security parameters are h
     const code = codeToVerify || enteredCode;
     if (code === activeGeneratedCode && activeGeneratedCode !== "") {
       setIsCodeVerified(true);
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+        newAdminEmail: restaurantInfo.adminEmail || "monstergame246@gmail.com"
+      });
       setPasswordStatusMsg({
         type: "success",
-        text: "Passcode authorization successful! Create your brand new administrative password below."
+        text: "Passcode authorization successful! Update your administrative settings below."
       });
     } else {
       setPasswordStatusMsg({
@@ -240,6 +250,12 @@ If you did not request this, please verify that system security parameters are h
       return;
     }
 
+    const updatedEmail = passwordForm.newAdminEmail.trim();
+    if (!updatedEmail) {
+      setPasswordStatusMsg({ type: "error", text: "Administrative recovery email cannot be blank." });
+      return;
+    }
+
     if (passwordForm.newPassword.length < 4) {
       setPasswordStatusMsg({ type: "error", text: "New password must be at least 4 characters long." });
       return;
@@ -252,11 +268,13 @@ If you did not request this, please verify that system security parameters are h
 
     // Save updated credentials to LocalStorage
     localStorage.setItem("wow_admin_password", passwordForm.newPassword);
+    localStorage.setItem("wow_admin_email", updatedEmail);
     
     // Save updated credentials permanently to Firestore
     const updatedInfo = { 
       ...restaurantInfo, 
-      adminPassword: passwordForm.newPassword 
+      adminPassword: passwordForm.newPassword,
+      adminEmail: updatedEmail
     };
 
     setRestaurantInfo(updatedInfo);
@@ -270,11 +288,11 @@ If you did not request this, please verify that system security parameters are h
 
     setPasswordStatusMsg({ 
       type: "success", 
-      text: "Administrative authorization successful! Password updated permanently." 
+      text: "Administrative authorization successful! Credentials updated permanently." 
     });
 
     // Reset forms and codes
-    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "", newAdminEmail: "" });
     setEnteredCode("");
     setActiveGeneratedCode("");
     setSimulatedEmailInbox(null);
@@ -548,10 +566,48 @@ If you did not request this, please verify that system security parameters are h
   const qrCodeImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(publicMenuUrl)}&color=ffc107&bgcolor=000000`;
 
   return (
-    <div className="h-screen w-screen bg-black text-white font-sans flex flex-col md:flex-row relative overflow-hidden">
+    <div className="h-screen w-screen bg-black text-white font-sans flex flex-col xl:flex-row relative overflow-hidden">
       
+      {/* MOBILE TOP NAVBAR */}
+      <div className="xl:hidden w-full bg-zinc-950 border-b border-white/[0.08] px-4 py-3 flex items-center justify-between shrink-0 z-30">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-1.5 rounded-lg bg-zinc-900 border border-white/5 text-zinc-400 hover:text-white hover:bg-zinc-800 transition-all cursor-pointer active:scale-95"
+            aria-label="Toggle Menu"
+            id="mobile_menu_trigger"
+          >
+            <Menu className="w-5 h-5 text-brand-yellow" />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-brand-yellow flex items-center justify-center text-black font-black text-[11px] select-none shadow-[0_0_8px_rgba(255,193,7,0.3)]">
+              W
+            </div>
+            <span className="text-[10px] font-black tracking-wider text-white">WOW ADMIN</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[8px] bg-brand-yellow/10 text-brand-yellow px-2 py-0.5 rounded uppercase font-black tracking-widest font-mono">
+            {activeTab === "overview" && "OVERVIEW"}
+            {activeTab === "categories" && "CATEGORIES"}
+            {activeTab === "items" && "MENU ITEMS"}
+            {activeTab === "restaurant" && "PROFILE"}
+            {activeTab === "payments" && "PAYMENTS"}
+            {activeTab === "settings" && "SECURITY"}
+          </span>
+        </div>
+      </div>
+
+      {/* Backdrop for mobile overlays */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 xl:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
       {/* SIDE NAVIGATION PANEL */}
-      <aside className="w-full md:w-64 h-auto md:h-full bg-zinc-950 border-b md:border-b-0 md:border-r border-white/[0.08] flex flex-col justify-between shrink-0">
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 h-full bg-zinc-950 border-r border-white/[0.08] flex flex-col justify-between shrink-0 transition-transform duration-300 ease-in-out xl:static xl:translate-x-0 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div>
           {/* Logo Brand Header */}
           <div className="px-6 py-5 border-b border-white/[0.06] flex items-center gap-3">
@@ -565,44 +621,44 @@ If you did not request this, please verify that system security parameters are h
           </div>
 
           {/* Nav Tabs */}
-          <nav className="p-4 space-y-1.5">
+          <nav className="p-4 space-y-1.5 font-sans">
             <button
-              onClick={() => { setActiveTab("overview"); setSelectedItem(null); setSelectedCategory(null); }}
+              onClick={() => { setActiveTab("overview"); setSelectedItem(null); setSelectedCategory(null); setIsMobileMenuOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${activeTab === "overview" ? "bg-brand-yellow text-black shadow-lg shadow-brand-yellow/10" : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"}`}
             >
               <LayoutDashboard className="w-4 h-4" />
               <span>Overview & QR</span>
             </button>
             <button
-              onClick={() => { setActiveTab("categories"); setSelectedItem(null); setSelectedCategory(null); }}
+              onClick={() => { setActiveTab("categories"); setSelectedItem(null); setSelectedCategory(null); setIsMobileMenuOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${activeTab === "categories" ? "bg-brand-yellow text-black shadow-lg shadow-brand-yellow/10" : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"}`}
             >
               <FolderKanban className="w-4 h-4" />
               <span>Categories</span>
             </button>
             <button
-              onClick={() => { setActiveTab("items"); setSelectedItem(null); setSelectedCategory(null); }}
+              onClick={() => { setActiveTab("items"); setSelectedItem(null); setSelectedCategory(null); setIsMobileMenuOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${activeTab === "items" ? "bg-brand-yellow text-black shadow-lg shadow-brand-yellow/10" : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"}`}
             >
               <Utensils className="w-4 h-4" />
               <span>Menu Items</span>
             </button>
             <button
-              onClick={() => { setActiveTab("restaurant"); setSelectedItem(null); setSelectedCategory(null); }}
+              onClick={() => { setActiveTab("restaurant"); setSelectedItem(null); setSelectedCategory(null); setIsMobileMenuOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${activeTab === "restaurant" ? "bg-brand-yellow text-black shadow-lg shadow-brand-yellow/10" : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"}`}
             >
               <Info className="w-4 h-4" />
               <span>Restaurant Info</span>
             </button>
             <button
-              onClick={() => { setActiveTab("payments"); setSelectedItem(null); setSelectedCategory(null); }}
+              onClick={() => { setActiveTab("payments"); setSelectedItem(null); setSelectedCategory(null); setIsMobileMenuOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${activeTab === "payments" ? "bg-brand-yellow text-black shadow-lg shadow-brand-yellow/10" : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"}`}
             >
               <DollarSign className="w-4 h-4" />
               <span>Banking & Wallets</span>
             </button>
             <button
-              onClick={() => { setActiveTab("settings"); setSelectedItem(null); setSelectedCategory(null); }}
+              onClick={() => { setActiveTab("settings"); setSelectedItem(null); setSelectedCategory(null); setIsMobileMenuOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${activeTab === "settings" ? "bg-brand-yellow text-black shadow-lg shadow-brand-yellow/10" : "text-zinc-400 hover:text-white hover:bg-white/[0.04]"}`}
             >
               <Key className="w-4 h-4" />
@@ -614,7 +670,7 @@ If you did not request this, please verify that system security parameters are h
         {/* Lougout Trigger Button footer */}
         <div className="p-4 border-t border-white/[0.06] bg-zinc-950/40">
           <button
-            onClick={onLogout}
+            onClick={() => { onLogout(); setIsMobileMenuOpen(false); }}
             className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-zinc-900 border border-white/5 hover:border-brand-red/30 hover:bg-brand-red/10 text-zinc-400 hover:text-brand-red text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
           >
             <span>Exit Dashboard</span>
@@ -653,7 +709,7 @@ If you did not request this, please verify that system security parameters are h
             
             {/* Core Stats Cards */}
             <div className="lg:col-span-2 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-gradient-to-br from-zinc-950 to-zinc-900 border border-white/5 rounded-2xl p-5 shadow-sm">
                   <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider block">Menu Items Listed</span>
                   <div className="flex items-end justify-between mt-2">
@@ -1195,7 +1251,7 @@ If you did not request this, please verify that system security parameters are h
                   </div>
 
                   {/* Promotion Badges toggle checkboxes */}
-                  <div className="md:col-span-3 border-t border-white/[0.04] pt-4 grid grid-cols-3 gap-4">
+                  <div className="md:col-span-3 border-t border-white/[0.04] pt-4 grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <label className="flex items-center gap-2.5 bg-zinc-950 p-3 rounded-xl border border-white/5 cursor-pointer hover:border-brand-yellow/30 select-none">
                       <input
                         type="checkbox"
@@ -1346,7 +1402,78 @@ If you did not request this, please verify that system security parameters are h
 
                   return (
                     <>
-                      <div className="overflow-x-auto border border-white/[0.06] rounded-2xl bg-zinc-950">
+                      {/* RESPONSIVE MOBILE & TABLET CARD CONTAINER */}
+                      <div className="xl:hidden space-y-4">
+                        {paginatedItems.length === 0 ? (
+                          <div className="text-center py-10 bg-zinc-950 border border-white/[0.06] rounded-2xl text-zinc-500 text-xs font-sans font-bold">
+                            No dishes found matching the active configuration.
+                          </div>
+                        ) : (
+                          paginatedItems.map(item => (
+                            <div key={`mobile-item-${item.id}`} className="bg-zinc-950 border border-white/[0.06] rounded-2xl p-4 space-y-4 shadow-md text-left">
+                              <div className="flex items-center gap-3.5">
+                                <div className="w-14 h-14 rounded-xl bg-zinc-900 overflow-hidden border border-white/5 shrink-0 shadow-inner">
+                                  <img 
+                                    src={item.image} 
+                                    alt={item.name} 
+                                    className="w-full h-full object-cover"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <h4 className="font-extrabold text-white uppercase text-[12px] leading-tight truncate">{item.name}</h4>
+                                    <span className="text-xs font-black text-brand-yellow font-mono shrink-0">{item.price.toFixed(2)} ETB</span>
+                                  </div>
+                                  <p className="text-[9.5px] text-zinc-400 uppercase font-mono font-black mt-1 bg-zinc-900 px-2 py-0.5 rounded w-fit">{item.category}</p>
+                                  <p className="text-[9.5px] text-zinc-500 font-medium truncate mt-1">{item.ingredients || "No custom ingredients defined"}</p>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-2 text-[10px] font-mono border-t border-b border-white/[0.04] py-2.5">
+                                <div className="text-zinc-400">⚡ Views: <span className="text-brand-yellow font-extrabold">{item.viewCount || 0}</span></div>
+                                <div className="text-zinc-400">⏱️ Prep: <span className="text-white font-extrabold">{item.prepTime || "N/A"}</span></div>
+                                <div className="text-zinc-400 col-span-2 flex flex-wrap gap-1 mt-1">
+                                  {item.isPopular && <span className="bg-brand-yellow/[0.08] text-brand-yellow border border-brand-yellow/15 text-[8px] font-black uppercase px-2 py-0.5 rounded-sm">Popular</span>}
+                                  {item.isChefPick && <span className="bg-brand-red/[0.08] text-brand-red border border-brand-red/15 text-[8px] font-black uppercase px-2 py-0.5 rounded-sm">Chef's Pick</span>}
+                                  {item.isFeatured && <span className="bg-cyan-400/[0.08] text-cyan-400 border border-cyan-400/15 text-[8px] font-black uppercase px-2 py-0.5 rounded-sm">Featured</span>}
+                                  {!item.isPopular && !item.isChefPick && !item.isFeatured && <span className="text-zinc-650 text-[8px] uppercase font-black">Standard</span>}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between gap-2 pt-1 border-t border-white/[0.02]">
+                                <button
+                                  type="button"
+                                  onClick={() => setInspectingItem(item)}
+                                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-zinc-900 border border-white/5 text-[10px] text-zinc-350 hover:text-white font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer font-sans"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>Inspect</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditItem(item)}
+                                  className="w-9 h-9 rounded-xl bg-zinc-900 border border-white/5 hover:border-brand-yellow/30 text-zinc-400 hover:text-brand-yellow flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0"
+                                  title="Edit Item"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteItem(item.id)}
+                                  className="w-9 h-9 rounded-xl bg-zinc-900 border border-white/5 hover:border-brand-red/30 text-zinc-400 hover:text-brand-red flex items-center justify-center transition-all cursor-pointer active:scale-95 shrink-0"
+                                  title="Delete Item"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {/* DESKTOP TABLE CONTAINER */}
+                      <div className="hidden xl:block overflow-x-auto border border-white/[0.06] rounded-2xl bg-zinc-950">
                         <table className="w-full text-left text-xs text-zinc-300 font-light select-none">
                           <thead className="bg-zinc-900 border-b border-white/[0.06] text-white">
                             <tr>
@@ -1995,7 +2122,7 @@ If you did not request this, please verify that system security parameters are h
                 {isCodeVerified && "Set Secure Administrative Password"}
               </h4>
               <p className="text-[9.5px] text-zinc-500 mt-1 leading-relaxed font-sans">
-                {!isEmailSent && `To retrieve authorization permission, enter the registered email account prefix (${restaurantInfo.adminEmail || "admin@wowburger.et"}).`}
+                {!isEmailSent && `To retrieve authorization permission, enter the registered email account prefix (${restaurantInfo.adminEmail || "monstergame246@gmail.com"}).`}
                 {isEmailSent && !isCodeVerified && "A simulated validation email has been sent to your administrative server box with a 6-digit access code."}
                 {isCodeVerified && "Credentials successfully authorized! Create your new durable administrative desktop dashboard password below."}
               </p>
@@ -2072,7 +2199,7 @@ If you did not request this, please verify that system security parameters are h
                     required
                     value={resetEmailInput}
                     onChange={(e) => setResetEmailInput(e.target.value)}
-                    placeholder="Enter email e.g. admin@wowburger.et"
+                    placeholder="Enter email e.g. monstergame246@gmail.com"
                     className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans placeholder-zinc-650"
                   />
                 </div>
@@ -2146,6 +2273,18 @@ If you did not request this, please verify that system security parameters are h
 
                 <div className="space-y-4">
                   <div className="space-y-1">
+                    <label className="text-[9px] uppercase font-black text-zinc-400 tracking-wider">Registered Admin Email *</label>
+                    <input
+                      type="email"
+                      required
+                      value={passwordForm.newAdminEmail}
+                      onChange={(e) => setPasswordForm({ ...passwordForm, newAdminEmail: e.target.value })}
+                      placeholder="e.g. manager@wowburger.et"
+                      className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
                     <label className="text-[9px] uppercase font-black text-zinc-400 tracking-wider">New Administrative Password *</label>
                     <input
                       type="password"
@@ -2176,7 +2315,7 @@ If you did not request this, please verify that system security parameters are h
                     className="w-full bg-brand-yellow hover:bg-yellow-500 text-black px-6 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-brand-yellow/5 active:scale-98"
                   >
                     <Save className="w-3.5 h-3.5" />
-                    <span>Save Password in Firestore Database</span>
+                    <span>Save Credentials in Firestore Database</span>
                   </button>
                 </div>
               </form>
@@ -2184,6 +2323,112 @@ If you did not request this, please verify that system security parameters are h
           </div>
         )}
       </main>
+
+      {/* GORGEOUS IMMERSIVE INSPECTION MODAL */}
+      {inspectingItem && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-black w-full max-w-lg rounded-3xl border border-white/[0.08] overflow-hidden shadow-2xl relative">
+            <button
+              onClick={() => setInspectingItem(null)}
+              className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/60 backdrop-blur border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-all hover:scale-110 cursor-pointer active:scale-95 z-10"
+              aria-label="Close Inspector"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Header Image Cover banner */}
+            <div className="h-56 relative w-full overflow-hidden bg-neutral-900 border-b border-white/[0.04]">
+              <img 
+                src={inspectingItem.image} 
+                alt={inspectingItem.name} 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+              <div className="absolute bottom-4 left-5 right-5 text-left">
+                <span className="text-[9px] bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20 px-2.5 py-1 rounded-full uppercase tracking-wider font-mono font-black">
+                  {inspectingItem.category}
+                </span>
+                <h3 className="text-xl font-black text-white uppercase tracking-tight mt-1 px-0.5">{inspectingItem.name}</h3>
+              </div>
+            </div>
+
+            {/* Inner Specifications content */}
+            <div className="p-6 space-y-4 font-sans text-left">
+              <div className="space-y-1">
+                <span className="text-[9.5px] font-black uppercase tracking-widest text-brand-yellow/80 font-mono block">Signature Description / Ingredients</span>
+                <p className="text-xs text-zinc-300 leading-relaxed font-sans">{inspectingItem.ingredients || "No custom formulation/ingredients text specified."}</p>
+              </div>
+
+              {/* Specs Bento Grid layout */}
+              <div className="grid grid-cols-2 gap-3.5 pt-2 text-left animate-fade-in">
+                <div className="bg-zinc-900/50 border border-white/[0.03] rounded-2xl p-3.5 space-y-1">
+                  <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Dish Unit Price</span>
+                  <div className="text-sm font-black text-brand-yellow font-mono">{inspectingItem.price.toFixed(2)} ETB</div>
+                </div>
+
+                <div className="bg-zinc-900/50 border border-white/[0.03] rounded-2xl p-3.5 space-y-1 text-left">
+                  <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Estimated Prep Duration</span>
+                  <div className="text-sm font-black text-white font-mono">⏱️ {inspectingItem.prepTime || "N/A"}</div>
+                </div>
+
+                <div className="bg-zinc-900/50 border border-white/[0.03] rounded-2xl p-3.5 space-y-1 text-left">
+                  <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Real-time Views Count</span>
+                  <div className="text-sm font-black text-cyan-400 font-mono">⚡ {inspectingItem.viewCount || 0} hits</div>
+                </div>
+
+                <div className="bg-zinc-900/50 border border-white/[0.03] rounded-2xl p-3.5 space-y-1 text-left">
+                  <span className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider block">Satisfaction Rating</span>
+                  <div className="text-sm font-black text-yellow-400 font-mono">★ {inspectingItem.rating || "5.0"} (Excellent)</div>
+                </div>
+              </div>
+
+              {/* Tags Status row */}
+              <div className="border-t border-white/[0.04] pt-4 text-left">
+                <span className="text-[9.5px] font-black uppercase tracking-widest text-brand-yellow/80 font-mono block mb-2">Active Promotional Badges</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {inspectingItem.isPopular && (
+                    <span className="bg-brand-yellow/[0.08] text-brand-yellow border border-brand-yellow/15 text-[8.5px] font-black uppercase px-2.5 py-1 rounded-md">Popular tag enabled</span>
+                  )}
+                  {inspectingItem.isChefPick && (
+                    <span className="bg-brand-red/[0.08] text-brand-red border border-brand-red/15 text-[8.5px] font-black uppercase px-2.5 py-1 rounded-md">Chef's Pick enabled</span>
+                  )}
+                  {inspectingItem.isFeatured && (
+                    <span className="bg-cyan-400/[0.08] text-cyan-400 border border-cyan-400/15 text-[8.5px] font-black uppercase px-2.5 py-1 rounded-md">Featured item enabled</span>
+                  )}
+                  {!inspectingItem.isPopular && !inspectingItem.isChefPick && !inspectingItem.isFeatured && (
+                    <span className="text-zinc-550 text-[10px] font-medium italic">This item does not use custom diagnostic badges. It appears standard on the digital menus.</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Bottom Quick Actions Row */}
+              <div className="flex gap-2.5 pt-4 border-t border-white/[0.04] mt-1.5 text-left">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleOpenEditItem(inspectingItem);
+                    setInspectingItem(null);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-brand-yellow hover:bg-yellow-500 text-black text-xs font-black uppercase tracking-wider cursor-pointer active:scale-95 transition-all font-sans"
+                >
+                  <Edit2 className="w-4 h-4 stroke-[2.5]" />
+                  <span>Edit Item Specs</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setInspectingItem(null);
+                  }}
+                  className="px-6 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-white/5 text-zinc-400 hover:text-white text-xs font-black uppercase tracking-wider cursor-pointer active:scale-95 transition-all font-sans"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

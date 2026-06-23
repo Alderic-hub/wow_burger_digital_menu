@@ -16,6 +16,7 @@ import {
   subscribeRestaurantInfo,
   incrementItemViewCount
 } from "./dbService";
+import { motion } from "motion/react";
 import RestaurantHeader from "./components/RestaurantHeader";
 import DetailViewOverlay from "./components/DetailViewOverlay";
 import MenuView from "./components/MenuView";
@@ -34,10 +35,13 @@ export default function App() {
     const hash = window.location.hash;
     const hasToken = !!localStorage.getItem("wow_admin_token");
 
-    if (path.startsWith("/wow-burger-admin/login") || hash.startsWith("#/wow-burger-admin/login")) {
+    const isAdminLogin = path.includes("/wow-burger-admin/login") || hash.includes("/wow-burger-admin/login") || path.includes("/admin/login") || hash.includes("/admin/login") || hash.includes("#admin-login");
+    const isAdminDashboard = path.includes("/wow-burger-admin") || hash.includes("/wow-burger-admin") || path.includes("/admin") || hash.includes("#admin") || hash.includes("#/admin");
+
+    if (isAdminLogin) {
       return "admin-login";
     }
-    if (path.startsWith("/wow-burger-admin") || hash.startsWith("#/wow-burger-admin")) {
+    if (isAdminDashboard) {
       return hasToken ? "admin-dashboard" : "admin-login";
     }
     return "customer";
@@ -85,9 +89,12 @@ export default function App() {
       const hash = window.location.hash;
       const hasToken = !!localStorage.getItem("wow_admin_token");
 
-      if (path.startsWith("/wow-burger-admin/login") || hash.startsWith("#/wow-burger-admin/login")) {
+      const isAdminLogin = path.includes("/wow-burger-admin/login") || hash.includes("/wow-burger-admin/login") || path.includes("/admin/login") || hash.includes("/admin/login") || hash.includes("#admin-login");
+      const isAdminDashboard = path.includes("/wow-burger-admin") || hash.includes("/wow-burger-admin") || path.includes("/admin") || hash.includes("#admin") || hash.includes("#/admin");
+
+      if (isAdminLogin) {
         setCurrentRoute("admin-login");
-      } else if (path.startsWith("/wow-burger-admin") || hash.startsWith("#/wow-burger-admin")) {
+      } else if (isAdminDashboard) {
         setCurrentRoute(hasToken ? "admin-dashboard" : "admin-login");
       } else {
         setCurrentRoute("customer");
@@ -122,6 +129,19 @@ export default function App() {
     }
   });
 
+  const [isCategorySelectorOpen, setIsCategorySelectorOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
   const handleToggleFavorite = (id: string) => {
     setFavorites((prev) => {
       const updated = prev.includes(id)
@@ -139,7 +159,7 @@ export default function App() {
         onLoginSuccess={() => setCurrentRoute("admin-dashboard")} 
         onGoHome={() => setCurrentRoute("customer")}
         adminPassword={restaurantInfo?.adminPassword || "admin"}
-        adminEmail={restaurantInfo?.adminEmail || "admin@wowburger.et"}
+        adminEmail={restaurantInfo?.adminEmail || "monstergame246@gmail.com"}
       />
     );
   }
@@ -173,7 +193,10 @@ export default function App() {
           onInfoClick={() => setCurrentPage("info")}
           onBackClick={() => setCurrentPage("menu")}
           onPaymentClick={() => setCurrentPage("payment")}
+          onNavigate={(page) => setCurrentPage(page)}
           logoUrl={restaurantInfo?.logoUrl}
+          isCategorySelectorOpen={isCategorySelectorOpen}
+          onToggleCategorySelector={setIsCategorySelectorOpen}
         />
 
         {/* Center Main Dynamic Panel - Direct Menu Experience */}
@@ -192,6 +215,8 @@ export default function App() {
                 }
               }}
               restaurantInfo={restaurantInfo}
+              isCategorySelectorOpen={isCategorySelectorOpen}
+              onToggleCategorySelector={setIsCategorySelectorOpen}
             />
           </div>
 

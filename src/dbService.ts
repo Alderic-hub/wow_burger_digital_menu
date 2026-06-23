@@ -49,7 +49,7 @@ export const DEFAULT_RESTAURANT_INFO: RestaurantInfo = {
     }
   ],
   adminPassword: "admin",
-  adminEmail: "admin@wowburger.et"
+  adminEmail: "monstergame246@gmail.com"
 };
 
 export const DEFAULT_EMPLOYEES: Employee[] = [
@@ -166,7 +166,7 @@ export async function bootstrapFirestoreIfEmpty() {
         needsUpdate = true;
       }
       if (!currentRemoteInfo.adminEmail) {
-        updatedData.adminEmail = "admin@wowburger.et";
+        updatedData.adminEmail = "monstergame246@gmail.com";
         needsUpdate = true;
       }
       if (needsUpdate) {

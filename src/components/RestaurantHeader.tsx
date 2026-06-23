@@ -1,4 +1,4 @@
-import { Info, ArrowLeft, Landmark } from "lucide-react";
+import { Info, ArrowLeft, Landmark, Lock } from "lucide-react";
 // @ts-ignore
 import wowBurgerLogo from "../assets/images/wow_burger_logo_1781154696795.png";
 
@@ -7,15 +7,25 @@ interface RestaurantHeaderProps {
   onInfoClick: () => void;
   onBackClick: () => void;
   onPaymentClick?: () => void;
+  onNavigate?: (page: "menu" | "info" | "payment") => void;
   logoUrl?: string;
+  isCategorySelectorOpen?: boolean;
+  onToggleCategorySelector?: (open: boolean) => void;
 }
 
-export default function RestaurantHeader({ currentPage, onInfoClick, onBackClick, onPaymentClick, logoUrl }: RestaurantHeaderProps) {
+export default function RestaurantHeader({ 
+  currentPage, 
+  onInfoClick, 
+  onBackClick, 
+  onPaymentClick, 
+  logoUrl
+}: RestaurantHeaderProps) {
   const finalLogo = logoUrl || wowBurgerLogo;
+
   return (
-    <header className="w-full z-30 px-4 py-3 bg-zinc-950 border-b border-white/[0.08] flex items-center justify-between shrink-0 select-none">
-      {/* WOW Burger Branding Left side */}
-      <div className="flex items-center gap-2.5">
+    <header className="w-full z-30 px-4 py-3 bg-zinc-950 border-b border-white/[0.08] flex items-center justify-between shrink-0 select-none relative">
+      {/* WOW Burger Branding Left side - Always Visible */}
+      <div className="flex items-center gap-2.5 z-10">
         <div className="w-8.5 h-8.5 rounded-full overflow-hidden border border-brand-yellow shadow-[0_0_12px_rgba(255,193,7,0.25)] bg-black">
           <img 
             src={finalLogo} 
@@ -32,8 +42,8 @@ export default function RestaurantHeader({ currentPage, onInfoClick, onBackClick
         </div>
       </div>
 
-      {/* Right Side Navigation Action Button */}
-      <div className="flex items-center gap-2">
+      {/* Action buttons (Right side) - always the same across mobile, tablet, and desktop */}
+      <div className="flex items-center gap-2 z-10">
         {onPaymentClick && currentPage === "menu" && (
           <button
             onClick={onPaymentClick}
@@ -69,4 +79,3 @@ export default function RestaurantHeader({ currentPage, onInfoClick, onBackClick
     </header>
   );
 }
-

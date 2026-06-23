@@ -108,9 +108,6 @@ export default function PaymentView({ isVisible, bankAccounts = [] }: PaymentVie
             <h2 className="text-2xl font-black text-white tracking-tight uppercase mt-0.5">
               Bank Transfers
             </h2>
-            <p className="text-[10px] text-brand-yellow font-extrabold tracking-widest uppercase font-mono mt-0.5">
-              Zero transaction fees • Instant verification
-            </p>
           </div>
         </div>
       </div>
