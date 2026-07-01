@@ -59,15 +59,16 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
   });
   const [passwordStatusMsg, setPasswordStatusMsg] = useState({ type: "", text: "" });
 
-  // Security Reset Email States
-  const [enteredCode, setEnteredCode] = useState<string>("");
-
+  // ── Settings / credential-change OTP state ──────────────────────────────
+  // Step 1: enter current-admin email  → POST /api/otp/send
+  // Step 2: enter 6-digit OTP          → POST /api/otp/verify
+  // Step 3: set new password (+ optional new-email OTP if email is changing)
+  const [settingsStep, setSettingsStep] = useState<1 | 2 | 3>(1);
   const [resetEmailInput, setResetEmailInput] = useState("");
-  const [isEmailSent, setIsEmailSent] = useState(false);
-  const [isCodeVerified, setIsCodeVerified] = useState(false);
-
-  const [enteredNewEmailOtp, setEnteredNewEmailOtp] = useState<string>("");
-  const [isNewEmailOtpSent, setIsNewEmailOtpSent] = useState<boolean>(false);
+  const [enteredCode, setEnteredCode] = useState("");
+  const [enteredNewEmailOtp, setEnteredNewEmailOtp] = useState("");
+  const [isNewEmailOtpSent, setIsNewEmailOtpSent] = useState(false);
+  const [isSettingsLoading, setIsSettingsLoading] = useState(false);
 
   // Popular items curation search state & toggles
   const [popularSearch, setPopularSearch] = useState("");
@@ -190,219 +191,147 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
     }
   };
 
-  // --- PASSWORD UPDATE & IDENTITY LOGIC ---
-  const handleSendVerificationCode = async () => {
+  // ── Helper: POST to an OTP endpoint, returns parsed JSON ────────────────
+  async function otpPost(path: string, body: object): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    try { return await res.json(); }
+    catch { return { success: false, message: `Server error ${res.status}` }; }
+  }
+
+  // ── Step 1: Verify the admin email then send OTP ─────────────────────────
+  async function handleSendVerificationCode() {
     setPasswordStatusMsg({ type: "", text: "" });
+    setIsSettingsLoading(true);
     try {
-      const remoteInfo = await getRemoteRestaurantInfo();
-      const targetEmail = remoteInfo.adminEmail || "monstergame246@gmail.com";
-      
-      const inputEmail = resetEmailInput.trim().toLowerCase();
-      const matchEmail = targetEmail.toLowerCase();
+      const remoteInfo  = await getRemoteRestaurantInfo();
+      const registered  = (remoteInfo.adminEmail || "monstergame246@gmail.com").toLowerCase();
+      const input       = resetEmailInput.trim().toLowerCase();
 
-      const isEmailValid = inputEmail === matchEmail;
-
-      if (!isEmailValid) {
-        setPasswordStatusMsg({
-          type: "error",
-          text: `The entered email Address (${resetEmailInput}) does not match our registered administrative profile.`
-        });
+      if (input !== registered) {
+        setPasswordStatusMsg({ type: "error", text: `The email you entered does not match our registered admin profile.` });
         return;
       }
 
-      try {
-        const response = await fetch("/api/otp/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: inputEmail }),
-        });
+      const data = await otpPost("/api/otp/send", { email: input });
+      if (!data.success) throw new Error(data.message);
 
-        const data = await response.json().catch(() => ({ success: false, message: `Server error ${response.status}` }));
-
-        if (!response.ok || !data.success) {
-          throw new Error(data.message || "Failed to deliver email.");
-        }
-
-        setIsEmailSent(true);
-        setPasswordStatusMsg({
-          type: "success",
-          text: `A secure 6-digit verification code has been successfully sent directly to ${inputEmail}!`
-        });
-      } catch (err: any) {
-        setPasswordStatusMsg({
-          type: "error",
-          text: `Failed to deliver verification email: ${err.message || "server unreachable"}. Please verify your SMTP settings in the Settings menu.`
-        });
-      }
+      setSettingsStep(2);
+      setPasswordStatusMsg({ type: "success", text: `Verification code sent to ${input}. It expires in 10 minutes.` });
     } catch (err: any) {
-      setPasswordStatusMsg({
-        type: "error",
-        text: err.message || "Could not fetch registration details from database. Please check your connection."
-      });
+      setPasswordStatusMsg({ type: "error", text: err.message || "Could not send code. Check your connection." });
+    } finally {
+      setIsSettingsLoading(false);
     }
-  };
+  }
 
-  const handleVerifyCode = async (codeToVerify?: string) => {
+  // ── Step 2: Verify OTP ───────────────────────────────────────────────────
+  async function handleVerifyCode() {
     setPasswordStatusMsg({ type: "", text: "" });
-    const code = codeToVerify || enteredCode;
-    const email = resetEmailInput.trim().toLowerCase();
-
+    setIsSettingsLoading(true);
     try {
-      const response = await fetch("/api/otp/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code }),
+      const data = await otpPost("/api/otp/verify", {
+        email: resetEmailInput.trim().toLowerCase(),
+        code:  enteredCode,
       });
 
-      const data = await response.json().catch(() => ({ success: false, message: `Server error ${response.status}` }));
+      if (!data.success) throw new Error(data.message);
 
-      if (response.ok && data.success) {
-        setIsCodeVerified(true);
-        setPasswordForm({
-          currentPassword: "",
-          newPassword: "",
-          confirmPassword: "",
-          newAdminEmail: restaurantInfo.adminEmail || "monstergame246@gmail.com"
-        });
-        setPasswordStatusMsg({
-          type: "success",
-          text: "Passcode authorization successful! Update your administrative settings below."
-        });
-      } else {
-        setPasswordStatusMsg({
-          type: "error",
-          text: data.message || "Invalid verification code! Please check your administration email inbox closely."
-        });
-      }
+      setSettingsStep(3);
+      setPasswordForm({
+        currentPassword: "",
+        newPassword:     "",
+        confirmPassword: "",
+        newAdminEmail:   restaurantInfo.adminEmail || "monstergame246@gmail.com",
+      });
+      setPasswordStatusMsg({ type: "success", text: "Identity verified! Update your credentials below." });
     } catch (err: any) {
-      setPasswordStatusMsg({
-        type: "error",
-        text: err.message || "Could not connect to verification server. Please try again."
-      });
+      setPasswordStatusMsg({ type: "error", text: err.message || "Incorrect code. Please try again." });
+    } finally {
+      setIsSettingsLoading(false);
     }
-  };
+  }
 
-  const handleSavePassword = async (e: React.FormEvent) => {
+  // ── Step 3: Save new credentials (with optional new-email OTP) ───────────
+  async function handleSavePassword(e: React.FormEvent) {
     e.preventDefault();
     setPasswordStatusMsg({ type: "", text: "" });
 
-    if (!isCodeVerified) {
-      setPasswordStatusMsg({ type: "error", text: "Please authorize identity using the security code first!" });
-      return;
-    }
-
     const updatedEmail = passwordForm.newAdminEmail.trim();
     if (!updatedEmail) {
-      setPasswordStatusMsg({ type: "error", text: "Administrative recovery email cannot be blank." });
+      setPasswordStatusMsg({ type: "error", text: "Admin email cannot be blank." });
       return;
     }
-
     if (passwordForm.newPassword.length < 4) {
-      setPasswordStatusMsg({ type: "error", text: "New password must be at least 4 characters long." });
+      setPasswordStatusMsg({ type: "error", text: "New password must be at least 4 characters." });
       return;
     }
-
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordStatusMsg({ type: "error", text: "New passwords do not match!" });
+      setPasswordStatusMsg({ type: "error", text: "Passwords do not match." });
       return;
     }
 
-    // Is the email address being changed?
-    const isEmailChanged = updatedEmail.toLowerCase() !== (restaurantInfo.adminEmail || "").toLowerCase();
+    const emailChanged = updatedEmail.toLowerCase() !== (restaurantInfo.adminEmail || "").toLowerCase();
 
-    if (isEmailChanged && !isNewEmailOtpSent) {
-      // Send OTP to the new email address via backend
+    // If email changed → send OTP to the new address first
+    if (emailChanged && !isNewEmailOtpSent) {
+      setIsSettingsLoading(true);
       try {
-        const response = await fetch("/api/otp/send", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: updatedEmail }),
-        });
-
-        const data = await response.json().catch(() => ({ success: false, message: `Server error ${response.status}` }));
-
-        if (!response.ok || !data.success) {
-          throw new Error(data.message || "Failed to deliver email.");
-        }
-
+        const data = await otpPost("/api/otp/send", { email: updatedEmail });
+        if (!data.success) throw new Error(data.message);
         setIsNewEmailOtpSent(true);
-        setPasswordStatusMsg({
-          type: "success",
-          text: `A secure 6-digit verification code has been sent directly to your proposed new email address: ${updatedEmail}!`
-        });
-        return;
+        setPasswordStatusMsg({ type: "success", text: `Verification code sent to ${updatedEmail}. Enter it below to confirm ownership.` });
       } catch (err: any) {
-        setPasswordStatusMsg({
-          type: "error",
-          text: `Failed to deliver verification email to ${updatedEmail}: ${err.message || "server unreachable"}. Please verify your SMTP settings in the Settings menu.`
-        });
-        return;
+        setPasswordStatusMsg({ type: "error", text: err.message || "Failed to send code to the new email." });
+      } finally {
+        setIsSettingsLoading(false);
       }
+      return;
     }
 
-    if (isEmailChanged && isNewEmailOtpSent) {
-      // Verify the OTP for the new email address via backend
+    // If email changed and OTP was sent → verify it
+    if (emailChanged && isNewEmailOtpSent) {
+      setIsSettingsLoading(true);
       try {
-        const response = await fetch("/api/otp/verify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: updatedEmail, code: enteredNewEmailOtp }),
-        });
-
-        const data = await response.json().catch(() => ({ success: false, message: `Server error ${response.status}` }));
-
-        if (!response.ok || !data.success) {
-          setPasswordStatusMsg({
-            type: "error",
-            text: data.message || "Invalid verification code for your new email address! Please check the inbox and try again."
-          });
-          return;
-        }
+        const data = await otpPost("/api/otp/verify", { email: updatedEmail, code: enteredNewEmailOtp });
+        if (!data.success) throw new Error(data.message);
       } catch (err: any) {
-        setPasswordStatusMsg({
-          type: "error",
-          text: err.message || "Could not connect to verification server. Please try again."
-        });
+        setPasswordStatusMsg({ type: "error", text: err.message || "Invalid code for the new email address." });
+        setIsSettingsLoading(false);
         return;
+      } finally {
+        setIsSettingsLoading(false);
       }
     }
 
-    updateRemoteAdminCredentials(updatedEmail, passwordForm.newPassword)
-      .then(() => {
-        const updatedInfo = { 
-          ...restaurantInfo, 
-          adminPassword: passwordForm.newPassword,
-          adminEmail: updatedEmail
-        };
+    // All checks passed → persist credentials
+    setIsSettingsLoading(true);
+    try {
+      await updateRemoteAdminCredentials(updatedEmail, passwordForm.newPassword);
 
-        setRestaurantInfo(updatedInfo);
-        setInfoForm(updatedInfo);
+      const updated = { ...restaurantInfo, adminPassword: passwordForm.newPassword, adminEmail: updatedEmail };
+      setRestaurantInfo(updated);
+      setInfoForm(updated);
+      if (onRefreshPublicData) onRefreshPublicData();
 
-        if (onRefreshPublicData) {
-          onRefreshPublicData();
-        }
+      setPasswordStatusMsg({ type: "success", text: "Credentials updated and saved to the database." });
 
-        setPasswordStatusMsg({ 
-          type: "success", 
-          text: "Administrative authorization successful! Credentials updated permanently." 
-        });
-
-        // Reset forms and codes
-        setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "", newAdminEmail: "" });
-        setEnteredCode("");
-        setResetEmailInput("");
-        setIsEmailSent(false);
-        setIsCodeVerified(false);
-        setIsNewEmailOtpSent(false);
-        setEnteredNewEmailOtp("");
-      })
-      .catch((err) => {
-        setPasswordStatusMsg({
-          type: "error",
-          text: "Failed to save administrative credentials to Firestore database."
-        });
-      });
-  };
+      // Reset the whole settings flow
+      setSettingsStep(1);
+      setResetEmailInput("");
+      setEnteredCode("");
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "", newAdminEmail: "" });
+      setIsNewEmailOtpSent(false);
+      setEnteredNewEmailOtp("");
+    } catch {
+      setPasswordStatusMsg({ type: "error", text: "Failed to save credentials. Please try again." });
+    } finally {
+      setIsSettingsLoading(false);
+    }
+  }
 
   // --- IMAGE UPLOAD & CANVAS RESIZING SYSTEM ---
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>, isForCarouselIndex?: number) => {
@@ -2212,33 +2141,34 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
           </form>
         )}
 
-        {/* Tab 7: CUSTOM PASSWORD CHANGE INTERFACE */}
+        {/* Tab 7: CREDENTIAL CHANGE — 3-step OTP flow */}
         {activeTab === "settings" && (
           <div className="max-w-xl mx-auto space-y-6 text-left">
-            {/* Step Guides Indicator Header */}
+
+            {/* Step header */}
             <div className="bg-zinc-950 p-6 border border-white/[0.05] rounded-2xl">
               <span className="text-[10px] text-brand-yellow font-black uppercase tracking-wider font-mono">
-                {!isEmailSent && "Step 1 of 3: Request Security Code"}
-                {isEmailSent && !isCodeVerified && "Step 2 of 3: Authorize Identity"}
-                {isCodeVerified && "Step 3 of 3: Create New Password"}
+                {settingsStep === 1 && "Step 1 of 3 — Request Security Code"}
+                {settingsStep === 2 && "Step 2 of 3 — Authorize Identity"}
+                {settingsStep === 3 && "Step 3 of 3 — Update Credentials"}
               </span>
               <h4 className="text-sm font-black text-white uppercase tracking-tight mt-1">
-                {!isEmailSent && "Verify Administrative Registered Email"}
-                {isEmailSent && !isCodeVerified && "Enter Validation Verification Key"}
-                {isCodeVerified && "Set Secure Administrative Password"}
+                {settingsStep === 1 && "Verify Registered Admin Email"}
+                {settingsStep === 2 && "Enter Verification Code"}
+                {settingsStep === 3 && "Set New Password"}
               </h4>
               <p className="text-[9.5px] text-zinc-500 mt-1 leading-relaxed font-sans">
-                {!isEmailSent && `To retrieve authorization permission, enter the registered email account prefix (${restaurantInfo.adminEmail || "monstergame246@gmail.com"}).`}
-                {isEmailSent && !isCodeVerified && "A validation email has been sent to your administrative registered email with a 6-digit access code."}
-                {isCodeVerified && "Credentials successfully authorized! Create your new durable administrative desktop dashboard password below."}
+                {settingsStep === 1 && `Enter your registered admin email (${restaurantInfo.adminEmail || "monstergame246@gmail.com"}) to receive a one-time verification code.`}
+                {settingsStep === 2 && "A 6-digit code was sent to your admin inbox. Enter it below to unlock credential editing."}
+                {settingsStep === 3 && "Identity confirmed. Update your admin email and/or password below."}
               </p>
             </div>
 
-            {/* Error & Success Alerts message */}
+            {/* Status alert */}
             {passwordStatusMsg.text && (
               <div className={`p-3.5 rounded-xl border text-[10.5px] font-sans font-bold flex items-center gap-2 ${
-                passwordStatusMsg.type === "success" 
-                  ? "bg-green-500/10 border-green-500/25 text-green-400" 
+                passwordStatusMsg.type === "success"
+                  ? "bg-green-500/10 border-green-500/25 text-green-400"
                   : "bg-brand-yellow/10 border-brand-yellow/25 text-brand-yellow"
               }`}>
                 {passwordStatusMsg.type === "success" ? <CheckCircle className="w-4 h-4 shrink-0" /> : <X className="w-4 h-4 shrink-0" />}
@@ -2246,138 +2176,141 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
               </div>
             )}
 
-            {/* PHASE 1: EMAIL ENTRY & DISPATCH */}
-            {!isEmailSent && !isCodeVerified && (
+            {/* ── STEP 1: email input + send OTP ── */}
+            {settingsStep === 1 && (
               <div className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-black border border-white/[0.08] rounded-2xl p-6 space-y-4">
-                <div className="space-y-1.5 text-left">
+                <div className="space-y-1.5">
                   <label className="text-[9.5px] uppercase font-black text-zinc-400 tracking-wider flex items-center justify-between">
-                    <span>Registered Administration Email *</span>
-                    <span className="text-brand-yellow text-[8.5px] lowercase font-mono">Matches registration record</span>
+                    <span>Registered Admin Email *</span>
+                    <span className="text-brand-yellow text-[8.5px] lowercase font-mono">must match registration record</span>
                   </label>
                   <input
                     type="email"
-                    required
                     value={resetEmailInput}
                     onChange={(e) => setResetEmailInput(e.target.value)}
-                    placeholder="Enter email e.g. exampl@gmail.ocm"
-                    className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans placeholder-zinc-650"
+                    placeholder="your-admin@email.com"
+                    className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans placeholder-zinc-600"
                   />
                 </div>
-
                 {resetEmailInput.trim().length > 0 && (
                   <button
                     type="button"
+                    disabled={isSettingsLoading}
                     onClick={handleSendVerificationCode}
-                    className="w-full bg-brand-yellow hover:bg-yellow-500 text-black px-6 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-brand-yellow/5 active:scale-98"
+                    className="w-full bg-brand-yellow hover:bg-yellow-500 disabled:opacity-50 text-black px-6 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-brand-yellow/5 active:scale-98"
                   >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    <span>Send Confirmation Email</span>
+                    {isSettingsLoading
+                      ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /><span>Sending…</span></>
+                      : <><RefreshCw className="w-3.5 h-3.5" /><span>Send Verification Code</span></>}
                   </button>
                 )}
               </div>
             )}
 
-            {/* PHASE 2: VERIFICATION CODE ENTRY BOX */}
-            {isEmailSent && !isCodeVerified && (
+            {/* ── STEP 2: OTP entry + verify ── */}
+            {settingsStep === 2 && (
               <div className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-black border border-white/[0.08] rounded-2xl p-6 space-y-4 text-center">
-                <span className="text-zinc-400 text-xs font-semibold block max-w-md mx-auto leading-relaxed">
-                  Please enter the 6-digit numeric verification code received in your administrator inbox below to unlock editing:
-                </span>
+                <div className="flex flex-col items-center gap-1 pb-1">
+                  <Mail className="w-7 h-7 text-brand-yellow animate-bounce" />
+                  <p className="text-xs font-bold text-white">Check Your Inbox</p>
+                  <p className="text-[10px] text-zinc-400 leading-relaxed max-w-xs mx-auto">
+                    A 6-digit code was sent to{" "}
+                    <span className="text-brand-yellow font-mono font-bold">{resetEmailInput}</span>.
+                    {" "}It expires in 10 minutes.
+                  </p>
+                </div>
 
                 <div className="max-w-xs mx-auto space-y-3">
                   <input
                     type="text"
-                    required
                     maxLength={6}
                     value={enteredCode}
                     onChange={(e) => setEnteredCode(e.target.value.replace(/\D/g, ""))}
                     placeholder="000000"
-                    className="w-full bg-zinc-950 border border-brand-yellow/30 rounded-xl px-4 py-3 text-base text-brand-yellow focus:outline-none focus:border-brand-yellow font-mono text-center tracking-[0.5em] font-black text-[15px]"
+                    className="w-full bg-zinc-950 border border-brand-yellow/30 rounded-xl px-4 py-3 text-base text-brand-yellow focus:outline-none focus:border-brand-yellow font-mono text-center tracking-[0.5em] font-black"
                   />
 
-                  <div className="flex gap-2.5 pt-2">
+                  <div className="flex gap-2.5 pt-1">
                     <button
                       type="button"
-                      onClick={() => {
-                        setIsEmailSent(false);
-                        setEnteredCode("");
-                        setPasswordStatusMsg({ type: "", text: "" });
-                      }}
-                      className="w-1/2 bg-zinc-900 hover:bg-zinc-850 hover:text-white border border-white/5 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-zinc-400 transition-all cursor-pointer"
+                      onClick={() => { setSettingsStep(1); setEnteredCode(""); setPasswordStatusMsg({ type: "", text: "" }); }}
+                      className="w-1/2 bg-zinc-900 hover:bg-zinc-800 border border-white/5 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-zinc-400 hover:text-white transition-all cursor-pointer"
                     >
                       Back
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleVerifyCode()}
-                      disabled={enteredCode.length !== 6}
-                      className="w-1/2 bg-brand-yellow hover:bg-yellow-500 disabled:opacity-40 disabled:hover:bg-brand-yellow text-black py-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1"
+                      disabled={enteredCode.length !== 6 || isSettingsLoading}
+                      onClick={handleVerifyCode}
+                      className="w-1/2 bg-brand-yellow hover:bg-yellow-500 disabled:opacity-40 text-black py-3 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1"
                     >
-                      <CheckCircle className="w-3 h-3" />
-                      <span>Verify Code</span>
+                      {isSettingsLoading
+                        ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        : <><CheckCircle className="w-3 h-3" /><span>Verify Code</span></>}
                     </button>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* PHASE 3: SECURE CHOOSE NEW PASSWORD CONTENT */}
-            {isCodeVerified && (
+            {/* ── STEP 3: Update email + password ── */}
+            {settingsStep === 3 && (
               <form onSubmit={handleSavePassword} className="bg-gradient-to-br from-zinc-950 via-zinc-900 to-black border border-brand-yellow/20 rounded-2xl p-6 space-y-4">
-                <h3 className="text-xs font-black uppercase tracking-wider text-brand-yellow border-b border-white/[0.06] pb-3 mb-1 flex items-center gap-1.5">
+                <h3 className="text-xs font-black uppercase tracking-wider text-brand-yellow border-b border-white/[0.06] pb-3 flex items-center gap-1.5">
                   <CheckCircle className="w-4 h-4 text-green-400 shrink-0" />
-                  <span>Authorized Identity Check - Settings Unlocked</span>
+                  Identity Verified — Settings Unlocked
                 </h3>
 
                 <div className="space-y-4">
+
+                  {/* Admin email */}
                   <div className="space-y-1">
-                    <label className="text-[9px] uppercase font-black text-zinc-400 tracking-wider">Registered Admin Email *</label>
+                    <label className="text-[9px] uppercase font-black text-zinc-400 tracking-wider">Admin Email *</label>
                     <input
                       type="email"
                       required
                       disabled={isNewEmailOtpSent}
                       value={passwordForm.newAdminEmail}
                       onChange={(e) => setPasswordForm({ ...passwordForm, newAdminEmail: e.target.value })}
-                      placeholder="e.g. exampl@gmail.ocm"
+                      placeholder="your-admin@email.com"
                       className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans disabled:opacity-50"
                     />
                   </div>
 
+                  {/* New-email OTP box (shown after requesting code for new address) */}
                   {isNewEmailOtpSent && (
-                    <div className="space-y-1.5 bg-brand-yellow/5 border border-brand-yellow/15 p-4 rounded-xl animate-fade-in text-left">
+                    <div className="bg-brand-yellow/5 border border-brand-yellow/15 p-4 rounded-xl space-y-2 text-left">
                       <label className="text-[9px] uppercase font-black text-brand-yellow tracking-wider block">
-                        Confirm OTP for New Email address *
+                        Confirm New Email — Enter Code *
                       </label>
-                      <span className="text-[9px] text-zinc-500 block leading-normal mb-1">
-                        Enter the 6-digit verification code sent to <strong>{passwordForm.newAdminEmail}</strong> to verify and authorize ownership:
-                      </span>
+                      <p className="text-[9px] text-zinc-500 leading-normal">
+                        Enter the 6-digit code sent to{" "}
+                        <strong className="text-white">{passwordForm.newAdminEmail}</strong>{" "}
+                        to verify ownership of this address.
+                      </p>
                       <div className="flex gap-2">
                         <input
                           type="text"
-                          required
                           maxLength={6}
                           value={enteredNewEmailOtp}
                           onChange={(e) => setEnteredNewEmailOtp(e.target.value.replace(/\D/g, ""))}
                           placeholder="000000"
-                          className="w-full bg-zinc-950 border border-brand-yellow/30 rounded-xl px-4 py-2.5 text-xs text-brand-yellow font-mono tracking-[0.2em] text-center focus:outline-none focus:border-brand-yellow font-black"
+                          className="flex-1 bg-zinc-950 border border-brand-yellow/30 rounded-xl px-4 py-2.5 text-xs text-brand-yellow font-mono tracking-[0.2em] text-center focus:outline-none focus:border-brand-yellow font-black"
                         />
                         <button
                           type="button"
-                          onClick={() => {
-                            setIsNewEmailOtpSent(false);
-                            setEnteredNewEmailOtp("");
-                            setPasswordStatusMsg({ type: "", text: "" });
-                          }}
-                          className="px-4 py-2 bg-zinc-900 border border-white/5 rounded-xl text-[9px] font-black uppercase tracking-wider text-zinc-400 hover:bg-zinc-850 hover:text-white transition-all cursor-pointer whitespace-nowrap"
+                          onClick={() => { setIsNewEmailOtpSent(false); setEnteredNewEmailOtp(""); setPasswordStatusMsg({ type: "", text: "" }); }}
+                          className="px-3 py-2 bg-zinc-900 border border-white/5 rounded-xl text-[9px] font-black uppercase tracking-wider text-zinc-400 hover:text-white transition-all cursor-pointer whitespace-nowrap"
                         >
-                          Change Email
+                          Change
                         </button>
                       </div>
                     </div>
                   )}
 
+                  {/* New password */}
                   <div className="space-y-1">
-                    <label className="text-[9px] uppercase font-black text-zinc-400 tracking-wider">New Administrative Password *</label>
+                    <label className="text-[9px] uppercase font-black text-zinc-400 tracking-wider">New Password *</label>
                     <input
                       type="password"
                       required
@@ -2388,6 +2321,7 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
                     />
                   </div>
 
+                  {/* Confirm password */}
                   <div className="space-y-1">
                     <label className="text-[9px] uppercase font-black text-zinc-400 tracking-wider">Confirm New Password *</label>
                     <input
@@ -2404,14 +2338,17 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
                 <div className="pt-4 border-t border-white/[0.04]">
                   <button
                     type="submit"
-                    className="w-full bg-brand-yellow hover:bg-yellow-500 text-black px-6 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-brand-yellow/5 active:scale-98"
+                    disabled={isSettingsLoading}
+                    className="w-full bg-brand-yellow hover:bg-yellow-500 disabled:opacity-50 text-black px-6 py-3.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-lg shadow-brand-yellow/5 active:scale-98"
                   >
-                    <Save className="w-3.5 h-3.5" />
-                    <span>Save Credentials in Firestore Database</span>
+                    {isSettingsLoading
+                      ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /><span>Saving…</span></>
+                      : <><Save className="w-3.5 h-3.5" /><span>Save Credentials</span></>}
                   </button>
                 </div>
               </form>
             )}
+
           </div>
         )}
       </main>
