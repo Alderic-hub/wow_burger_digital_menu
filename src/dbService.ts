@@ -84,6 +84,24 @@ export const DEFAULT_EMPLOYEES: Employee[] = [
 
 // Initialize localStorage with preset menu list if empty
 export function initDB() {
+  // Clean up any legacy local storage references to aldricrealm@gmail.com
+  const localEmail = localStorage.getItem("wow_admin_email");
+  if (localEmail && localEmail.toLowerCase() === "aldricrealm@gmail.com") {
+    localStorage.setItem("wow_admin_email", "monstergame246@gmail.com");
+  }
+  const localInfoStr = localStorage.getItem("wow_restaurant_info");
+  if (localInfoStr && localInfoStr.includes("aldricrealm@gmail.com")) {
+    try {
+      const localInfo = JSON.parse(localInfoStr);
+      if (localInfo.adminEmail && localInfo.adminEmail.toLowerCase() === "aldricrealm@gmail.com") {
+        localInfo.adminEmail = "monstergame246@gmail.com";
+        localStorage.setItem("wow_restaurant_info", JSON.stringify(localInfo));
+      }
+    } catch (e) {
+      // ignore
+    }
+  }
+
   const needsMigration = !localStorage.getItem("wow_db_migrated_v3");
   if (needsMigration) {
     localStorage.setItem("wow_menu_items", JSON.stringify(MENU_ITEMS));
@@ -165,7 +183,7 @@ export async function bootstrapFirestoreIfEmpty() {
         updatedData.adminPassword = "admin";
         needsUpdate = true;
       }
-      if (!currentRemoteInfo.adminEmail) {
+      if (!currentRemoteInfo.adminEmail || currentRemoteInfo.adminEmail.toLowerCase() === "aldricrealm@gmail.com") {
         updatedData.adminEmail = "monstergame246@gmail.com";
         needsUpdate = true;
       }

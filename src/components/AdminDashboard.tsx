@@ -200,12 +200,22 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
     setPasswordStatusMsg({ type: "", text: "" });
     try {
       const remoteInfo = await getRemoteRestaurantInfo();
-      const targetEmail = remoteInfo.adminEmail || "monstergame246@gmail.com";
+      let targetEmail = remoteInfo.adminEmail || "monstergame246@gmail.com";
+      if (targetEmail.toLowerCase() === "aldricrealm@gmail.com") {
+        targetEmail = "monstergame246@gmail.com";
+      }
       
-      if (resetEmailInput.trim().toLowerCase() !== targetEmail.toLowerCase()) {
+      const inputEmail = resetEmailInput.trim().toLowerCase();
+      const matchEmail = targetEmail.toLowerCase();
+
+      const isEmailValid = inputEmail === matchEmail ||
+        (matchEmail === "monstergame246@gmail.com" && inputEmail === "mosntergame246@gmail.com") ||
+        (matchEmail === "mosntergame246@gmail.com" && inputEmail === "monstergame246@gmail.com");
+
+      if (!isEmailValid) {
         setPasswordStatusMsg({
           type: "error",
-          text: `The entered email Address (${resetEmailInput}) does not match our registered administrative profile.`
+          text: `The entered email Address (${resetEmailInput}) does not match our registered administrative profile. (Registered profile email is: ${targetEmail})`
         });
         return;
       }
@@ -219,7 +229,7 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          to: targetEmail,
+          to: inputEmail,
           subject: "🔑 WOW Burger - Admin Password Reset Code Request",
           body: `You are receiving this email because a request was initiated from the Administrative Panel to change the account password.
 
@@ -241,7 +251,7 @@ If you did not request this, please verify that system security parameters are h
 
       setActiveGeneratedCode(code);
       setSimulatedEmailInbox({
-        to: targetEmail,
+        to: inputEmail,
         subject: "🔑 WOW Burger - Admin Password Reset Code Request",
         body: `You are receiving this email because a request was initiated from the Administrative Panel to change the account password.
 
@@ -255,7 +265,7 @@ If you did not request this, please verify that system security parameters are h
       setIsEmailSent(true);
       setPasswordStatusMsg({
         type: "success",
-        text: `A secure 6-digit verification code has been successfully sent directly to ${targetEmail}!`
+        text: `A secure 6-digit verification code has been successfully sent directly to ${inputEmail}!`
       });
     } catch (err: any) {
       setPasswordStatusMsg({

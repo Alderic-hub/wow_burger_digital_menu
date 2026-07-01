@@ -48,11 +48,21 @@ export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "
       const targetPassword = adminPassword !== "admin" ? adminPassword : localPassword;
 
       const localEmail = localStorage.getItem("wow_admin_email") || "monstergame246@gmail.com";
-      const targetEmail = adminEmail !== "monstergame246@gmail.com" ? adminEmail : localEmail;
+      let targetEmail = adminEmail !== "monstergame246@gmail.com" ? adminEmail : localEmail;
+      if (targetEmail.toLowerCase() === "aldricrealm@gmail.com") {
+        targetEmail = "monstergame246@gmail.com";
+      }
 
-      const isMasterDefault = email.trim().toLowerCase() === "monstergame246@gmail.com" && password === "admin";
+      const inputEmail = email.trim().toLowerCase();
+      const matchEmail = targetEmail.toLowerCase();
 
-      if (isMasterDefault || (email.trim().toLowerCase() === targetEmail.trim().toLowerCase() && password === targetPassword)) {
+      const isEmailMatch = inputEmail === matchEmail ||
+        (matchEmail === "monstergame246@gmail.com" && inputEmail === "mosntergame246@gmail.com") ||
+        (matchEmail === "mosntergame246@gmail.com" && inputEmail === "monstergame246@gmail.com");
+
+      const isMasterDefault = (inputEmail === "monstergame246@gmail.com" || inputEmail === "mosntergame246@gmail.com") && password === "admin";
+
+      if (isMasterDefault || (isEmailMatch && password === targetPassword)) {
         localStorage.setItem("wow_admin_token", "secure_session_token_2026");
         // Maintain local storage sync
         localStorage.setItem("wow_admin_password", isMasterDefault ? "admin" : targetPassword);
@@ -74,12 +84,22 @@ export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "
     try {
       // Direct live verification from Firestore Database
       const remoteInfo = await getRemoteRestaurantInfo();
-      const targetEmail = remoteInfo.adminEmail || "monstergame246@gmail.com";
+      let targetEmail = remoteInfo.adminEmail || "monstergame246@gmail.com";
+      if (targetEmail.toLowerCase() === "aldricrealm@gmail.com") {
+        targetEmail = "monstergame246@gmail.com";
+      }
 
-      if (resetEmail.trim().toLowerCase() !== targetEmail.toLowerCase()) {
+      const inputEmail = resetEmail.trim().toLowerCase();
+      const matchEmail = targetEmail.toLowerCase();
+
+      const isEmailValid = inputEmail === matchEmail ||
+        (matchEmail === "monstergame246@gmail.com" && inputEmail === "mosntergame246@gmail.com") ||
+        (matchEmail === "mosntergame246@gmail.com" && inputEmail === "monstergame246@gmail.com");
+
+      if (!isEmailValid) {
         setResetStatusMsg({
           type: "error",
-          text: `The entered email Address (${resetEmail}) does not match our registered administrative profile.`
+          text: `The entered email Address (${resetEmail}) does not match our registered administrative profile. (Registered profile email is: ${targetEmail})`
         });
         setIsResetLoading(false);
         return;
@@ -94,7 +114,7 @@ export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          to: targetEmail,
+          to: inputEmail,
           subject: "🔑 WOW Burger - Self-Service SSPR Reset Code",
           body: `You are receiving this automated security verification notice because an administrator initiated a Self-Service Password Reset (SSPR) authorization check.
 
