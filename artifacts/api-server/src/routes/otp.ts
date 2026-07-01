@@ -33,7 +33,7 @@ router.post("/otp/send", async (req, res) => {
 
   if (!transporter) {
     req.log.warn("SMTP not configured — OTP send skipped");
-    res.json({
+    res.status(503).json({
       success: false,
       message:
         "Email delivery is not configured. Please set SMTP_USER and SMTP_PASS environment variables.",
@@ -50,12 +50,12 @@ router.post("/otp/send", async (req, res) => {
     await transporter.sendMail({
       from,
       to: email,
-      subject: "🔑 WOW Burger — Password Reset Verification Code",
-      text: `You have requested a password reset for the WOW Burger Admin Portal.
+      subject: "🔑 WOW Burger — Verification Code",
+      text: `You have requested a verification code for the WOW Burger Admin Portal.
 
 Your verification code is: ${code}
 
-This code expires in 10 minutes. If you did not request this reset, please ignore this message and ensure your account is secure.
+This code expires in 10 minutes. If you did not request this, please ignore this message and ensure your account is secure.
 
 — WOW Burger Security`,
     });
@@ -65,7 +65,7 @@ This code expires in 10 minutes. If you did not request this reset, please ignor
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     logger.error({ err }, "Failed to send OTP email");
-    res.status(200).json({
+    res.status(502).json({
       success: false,
       message: `Failed to send verification email: ${msg}`,
     });
@@ -88,6 +88,13 @@ router.post("/otp/verify", (req, res) => {
     return;
   }
 
+  const statusCodes: Record<typeof result.reason, number> = {
+    not_found: 404,
+    expired: 410,
+    invalid: 422,
+    too_many_attempts: 429,
+  };
+
   const messages: Record<typeof result.reason, string> = {
     not_found: "No pending reset request found for this email. Please request a new code.",
     expired: "This code has expired. Please request a new one.",
@@ -96,7 +103,10 @@ router.post("/otp/verify", (req, res) => {
   };
 
   req.log.warn({ email, reason: result.reason }, "OTP verification failed");
-  res.status(200).json({ success: false, message: messages[result.reason] });
+  res.status(statusCodes[result.reason]).json({
+    success: false,
+    message: messages[result.reason],
+  });
 });
 
 export default router;

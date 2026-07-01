@@ -60,14 +60,12 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
   const [passwordStatusMsg, setPasswordStatusMsg] = useState({ type: "", text: "" });
 
   // Security Reset Email States
-  const [activeGeneratedCode, setActiveGeneratedCode] = useState<string>("");
   const [enteredCode, setEnteredCode] = useState<string>("");
 
   const [resetEmailInput, setResetEmailInput] = useState("");
   const [isEmailSent, setIsEmailSent] = useState(false);
   const [isCodeVerified, setIsCodeVerified] = useState(false);
 
-  const [newEmailOtpCode, setNewEmailOtpCode] = useState<string>("");
   const [enteredNewEmailOtp, setEnteredNewEmailOtp] = useState<string>("");
   const [isNewEmailOtpSent, setIsNewEmailOtpSent] = useState<boolean>(false);
 
@@ -212,44 +210,19 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
         return;
       }
 
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-
       try {
-        // Call the real API endpoint to send the verification code
-        const response = await fetch("/api/send-email", {
+        const response = await fetch("/api/otp/send", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            to: inputEmail,
-            subject: "🔑 WOW Burger - Admin Password Reset Code Request",
-            body: `You are receiving this email because a request was initiated from the Administrative Panel to change the account password.
-
-Your secure 6-digit administrative verification code is: ${code}
-
-If you did not request this, please verify that system security parameters are healthy.`,
-          }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: inputEmail }),
         });
 
-        let data: any = {};
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          data = await response.json();
-        } else {
-          const text = await response.text();
-          if (text.trim().startsWith("<") || text.includes("The page")) {
-            throw new Error("The mail-dispatch server is currently starting up or temporarily unreachable.");
-          } else {
-            throw new Error(text || `Server returned status code ${response.status}`);
-          }
-        }
+        const data = await response.json().catch(() => ({ success: false, message: `Server error ${response.status}` }));
 
         if (!response.ok || !data.success) {
           throw new Error(data.message || "Failed to deliver email.");
         }
 
-        setActiveGeneratedCode(code);
         setIsEmailSent(true);
         setPasswordStatusMsg({
           type: "success",
@@ -269,25 +242,42 @@ If you did not request this, please verify that system security parameters are h
     }
   };
 
-  const handleVerifyCode = (codeToVerify?: string) => {
+  const handleVerifyCode = async (codeToVerify?: string) => {
     setPasswordStatusMsg({ type: "", text: "" });
     const code = codeToVerify || enteredCode;
-    if (code === activeGeneratedCode && activeGeneratedCode !== "") {
-      setIsCodeVerified(true);
-      setPasswordForm({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-        newAdminEmail: restaurantInfo.adminEmail || "monstergame246@gmail.com"
+    const email = resetEmailInput.trim().toLowerCase();
+
+    try {
+      const response = await fetch("/api/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code }),
       });
-      setPasswordStatusMsg({
-        type: "success",
-        text: "Passcode authorization successful! Update your administrative settings below."
-      });
-    } else {
+
+      const data = await response.json().catch(() => ({ success: false, message: `Server error ${response.status}` }));
+
+      if (response.ok && data.success) {
+        setIsCodeVerified(true);
+        setPasswordForm({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+          newAdminEmail: restaurantInfo.adminEmail || "monstergame246@gmail.com"
+        });
+        setPasswordStatusMsg({
+          type: "success",
+          text: "Passcode authorization successful! Update your administrative settings below."
+        });
+      } else {
+        setPasswordStatusMsg({
+          type: "error",
+          text: data.message || "Invalid verification code! Please check your administration email inbox closely."
+        });
+      }
+    } catch (err: any) {
       setPasswordStatusMsg({
         type: "error",
-        text: "Invalid verification code! Please check your administration email inbox closely."
+        text: err.message || "Could not connect to verification server. Please try again."
       });
     }
   };
@@ -321,44 +311,20 @@ If you did not request this, please verify that system security parameters are h
     const isEmailChanged = updatedEmail.toLowerCase() !== (restaurantInfo.adminEmail || "").toLowerCase();
 
     if (isEmailChanged && !isNewEmailOtpSent) {
-      // We need to send an OTP verification code to the NEW admin email address!
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
-
+      // Send OTP to the new email address via backend
       try {
-        const response = await fetch("/api/send-email", {
+        const response = await fetch("/api/otp/send", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            to: updatedEmail,
-            subject: "🔑 WOW Burger - Admin Email Change Verification",
-            body: `You are receiving this email because a request was initiated from the Administrative Panel to update your administrative email to: ${updatedEmail}.
-
-Your secure 6-digit administrative verification code is: ${code}
-
-If you did not request this, please verify that system security parameters are healthy.`,
-          }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: updatedEmail }),
         });
 
-        let data: any = {};
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          data = await response.json();
-        } else {
-          const text = await response.text();
-          if (text.trim().startsWith("<") || text.includes("The page")) {
-            throw new Error("The mail-dispatch server is currently starting up or temporarily unreachable.");
-          } else {
-            throw new Error(text || `Server returned status code ${response.status}`);
-          }
-        }
+        const data = await response.json().catch(() => ({ success: false, message: `Server error ${response.status}` }));
 
         if (!response.ok || !data.success) {
           throw new Error(data.message || "Failed to deliver email.");
         }
 
-        setNewEmailOtpCode(code);
         setIsNewEmailOtpSent(true);
         setPasswordStatusMsg({
           type: "success",
@@ -375,11 +341,27 @@ If you did not request this, please verify that system security parameters are h
     }
 
     if (isEmailChanged && isNewEmailOtpSent) {
-      // Validate the entered OTP for the new email address
-      if (enteredNewEmailOtp !== newEmailOtpCode) {
+      // Verify the OTP for the new email address via backend
+      try {
+        const response = await fetch("/api/otp/verify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: updatedEmail, code: enteredNewEmailOtp }),
+        });
+
+        const data = await response.json().catch(() => ({ success: false, message: `Server error ${response.status}` }));
+
+        if (!response.ok || !data.success) {
+          setPasswordStatusMsg({
+            type: "error",
+            text: data.message || "Invalid verification code for your new email address! Please check the inbox and try again."
+          });
+          return;
+        }
+      } catch (err: any) {
         setPasswordStatusMsg({
           type: "error",
-          text: "Invalid verification code for your new email address! Please check the inbox and try again."
+          text: err.message || "Could not connect to verification server. Please try again."
         });
         return;
       }
@@ -408,12 +390,10 @@ If you did not request this, please verify that system security parameters are h
         // Reset forms and codes
         setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "", newAdminEmail: "" });
         setEnteredCode("");
-        setActiveGeneratedCode("");
         setResetEmailInput("");
         setIsEmailSent(false);
         setIsCodeVerified(false);
         setIsNewEmailOtpSent(false);
-        setNewEmailOtpCode("");
         setEnteredNewEmailOtp("");
       })
       .catch((err) => {
