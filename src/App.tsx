@@ -159,7 +159,7 @@ export default function App() {
         onLoginSuccess={() => setCurrentRoute("admin-dashboard")} 
         onGoHome={() => setCurrentRoute("customer")}
         adminPassword={restaurantInfo?.adminPassword || "admin"}
-        adminEmail={restaurantInfo?.adminEmail || "admin@wowburger.et"}
+        adminEmail={restaurantInfo?.adminEmail || "monstergame246@gmail.com"}
       />
     );
   }

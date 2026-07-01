@@ -11,9 +11,9 @@ interface AdminLoginProps {
   adminEmail?: string;
 }
 
-export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "admin", adminEmail = "admin@wowburger.et" }: AdminLoginProps) {
+export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "admin", adminEmail = "monstergame246@gmail.com" }: AdminLoginProps) {
   // Login States
-  const [email, setEmail] = useState("admin@wowburger.et");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("admin");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -47,21 +47,19 @@ export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "
       const localPassword = localStorage.getItem("wow_admin_password") || "admin";
       const targetPassword = adminPassword !== "admin" ? adminPassword : localPassword;
 
-      const localEmail = localStorage.getItem("wow_admin_email") || "admin@wowburger.et";
-      const targetEmail = adminEmail !== "admin@wowburger.et" ? adminEmail : localEmail;
+      const localEmail = localStorage.getItem("wow_admin_email") || "monstergame246@gmail.com";
+      const targetEmail = adminEmail || localEmail;
 
       const inputEmail = email.trim().toLowerCase();
       const matchEmail = targetEmail.toLowerCase();
 
-      const isEmailMatch = inputEmail === matchEmail;
+      const isEmailMatch = inputEmail && matchEmail && inputEmail === matchEmail;
 
-      const isMasterDefault = inputEmail === "admin@wowburger.et" && password === "admin";
-
-      if (isMasterDefault || (isEmailMatch && password === targetPassword)) {
+      if (isEmailMatch && password === targetPassword) {
         localStorage.setItem("wow_admin_token", "secure_session_token_2026");
         // Maintain local storage sync
-        localStorage.setItem("wow_admin_password", isMasterDefault ? "admin" : targetPassword);
-        localStorage.setItem("wow_admin_email", isMasterDefault ? "admin@wowburger.et" : targetEmail);
+        localStorage.setItem("wow_admin_password", targetPassword);
+        localStorage.setItem("wow_admin_email", targetEmail);
         onLoginSuccess();
       } else {
         setError("Invalid administrative credentials. Please verify your login details.");
@@ -79,7 +77,7 @@ export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "
     try {
       // Direct live verification from Firestore Database
       const remoteInfo = await getRemoteRestaurantInfo();
-      const targetEmail = remoteInfo.adminEmail || "admin@wowburger.et";
+      const targetEmail = remoteInfo.adminEmail || adminEmail || "monstergame246@gmail.com";
 
       const inputEmail = resetEmail.trim().toLowerCase();
       const matchEmail = targetEmail.toLowerCase();
@@ -355,7 +353,7 @@ If you did not initiate this reset request, verify system configuration variable
                       required
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
-                      placeholder="e.g. admin@wowburger.et"
+                      placeholder="e.g. exampl@gmail.ocm"
                       className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl pl-10 pr-4 py-3.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow/30 font-sans transition-all"
                     />
                   </div>
@@ -552,7 +550,7 @@ If you did not initiate this reset request, verify system configuration variable
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@wowburger.et"
+                  placeholder="exampl@gmail.ocm"
                   className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl pl-10 pr-4 py-3.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow/30 font-mono transition-all"
                 />
               </div>
@@ -583,7 +581,7 @@ If you did not initiate this reset request, verify system configuration variable
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="*****"
                   className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl pl-10 pr-4 py-3.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow/30 font-mono transition-all"
                 />
               </div>

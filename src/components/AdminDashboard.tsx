@@ -200,7 +200,7 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
     setPasswordStatusMsg({ type: "", text: "" });
     try {
       const remoteInfo = await getRemoteRestaurantInfo();
-      const targetEmail = remoteInfo.adminEmail || "admin@wowburger.et";
+      const targetEmail = remoteInfo.adminEmail || "monstergame246@gmail.com";
       
       const inputEmail = resetEmailInput.trim().toLowerCase();
       const matchEmail = targetEmail.toLowerCase();
@@ -308,7 +308,7 @@ If you did not request this, please verify that system security parameters are h
         currentPassword: "",
         newPassword: "",
         confirmPassword: "",
-        newAdminEmail: restaurantInfo.adminEmail || "admin@wowburger.et"
+        newAdminEmail: restaurantInfo.adminEmail || "monstergame246@gmail.com"
       });
       setPasswordStatusMsg({
         type: "success",
@@ -2208,7 +2208,7 @@ If you did not request this, please verify that system security parameters are h
                 {isCodeVerified && "Set Secure Administrative Password"}
               </h4>
               <p className="text-[9.5px] text-zinc-500 mt-1 leading-relaxed font-sans">
-                {!isEmailSent && `To retrieve authorization permission, enter the registered email account prefix (${restaurantInfo.adminEmail || "admin@wowburger.et"}).`}
+                {!isEmailSent && `To retrieve authorization permission, enter the registered email account prefix (${restaurantInfo.adminEmail || "monstergame246@gmail.com"}).`}
                 {isEmailSent && !isCodeVerified && "A simulated validation email has been sent to your administrative server box with a 6-digit access code."}
                 {isCodeVerified && "Credentials successfully authorized! Create your new durable administrative desktop dashboard password below."}
               </p>
@@ -2272,7 +2272,7 @@ If you did not request this, please verify that system security parameters are h
                     required
                     value={resetEmailInput}
                     onChange={(e) => setResetEmailInput(e.target.value)}
-                    placeholder="Enter email e.g. admin@wowburger.et"
+                    placeholder="Enter email e.g. exampl@gmail.ocm"
                     className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans placeholder-zinc-650"
                   />
                 </div>
@@ -2352,7 +2352,7 @@ If you did not request this, please verify that system security parameters are h
                       required
                       value={passwordForm.newAdminEmail}
                       onChange={(e) => setPasswordForm({ ...passwordForm, newAdminEmail: e.target.value })}
-                      placeholder="e.g. admin@wowburger.et"
+                      placeholder="e.g. exampl@gmail.ocm"
                       className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans"
                     />
                   </div>
