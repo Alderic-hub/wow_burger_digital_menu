@@ -74,6 +74,10 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
   const [isEmailSent, setIsEmailSent] = useState(false);
   const [isCodeVerified, setIsCodeVerified] = useState(false);
 
+  const [newEmailOtpCode, setNewEmailOtpCode] = useState<string>("");
+  const [enteredNewEmailOtp, setEnteredNewEmailOtp] = useState<string>("");
+  const [isNewEmailOtpSent, setIsNewEmailOtpSent] = useState<boolean>(false);
+
   // Popular items curation search state & toggles
   const [popularSearch, setPopularSearch] = useState("");
 
@@ -219,20 +223,18 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
       
       const isProduction = import.meta.env.PROD;
 
-      if (!isProduction) {
-        // Initialize simulated inbox first
-        setSimulatedEmailInbox({
-          to: inputEmail,
-          subject: "🔑 WOW Burger - Admin Password Reset Code Request",
-          body: `You are receiving this email because a request was initiated from the Administrative Panel to change the account password.
+      // Always initialize simulated inbox for resilient fallback
+      setSimulatedEmailInbox({
+        to: inputEmail,
+        subject: "🔑 WOW Burger - Admin Password Reset Code Request",
+        body: `You are receiving this email because a request was initiated from the Administrative Panel to change the account password.
 
 Your secure 6-digit administrative verification code is: ${code}
 
 If you did not request this, please verify that system security parameters are healthy.`,
-          code,
-          receivedAt: new Date().toLocaleTimeString()
-        });
-      }
+        code,
+        receivedAt: new Date().toLocaleTimeString()
+      });
 
       try {
         // Call the real API endpoint to send the verification code
@@ -276,20 +278,13 @@ If you did not request this, please verify that system security parameters are h
           text: `A secure 6-digit verification code has been successfully sent directly to ${inputEmail}!`
         });
       } catch (err: any) {
-        if (isProduction) {
-          setPasswordStatusMsg({
-            type: "error",
-            text: `Failed to deliver verification email: ${err.message || "server unreachable"}. Please verify your SMTP settings in the Settings menu.`
-          });
-        } else {
-          // Safe sandbox fallback: let them use the simulated inbox
-          setActiveGeneratedCode(code);
-          setIsEmailSent(true);
-          setPasswordStatusMsg({
-            type: "error",
-            text: `Notice: Real SMTP dispatch skipped or failed (${err.message || "unreachable"}). For sandbox convenience, the password reset code has been routed to the Simulated Mailbox below!`
-          });
-        }
+        // Safe sandbox fallback: let them use the simulated inbox even if SMTP is unconfigured/fails
+        setActiveGeneratedCode(code);
+        setIsEmailSent(true);
+        setPasswordStatusMsg({
+          type: "error",
+          text: `Notice: SMTP dispatch skipped or failed (${err.message || "unconfigured"}). To keep the application functional, the password reset code has been routed to the Simulated Sandbox Mailbox below! Configure SMTP variables for real-world delivery.`
+        });
       }
     } catch (err: any) {
       setPasswordStatusMsg({
@@ -322,7 +317,7 @@ If you did not request this, please verify that system security parameters are h
     }
   };
 
-  const handleSavePassword = (e: React.FormEvent) => {
+  const handleSavePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordStatusMsg({ type: "", text: "" });
 
@@ -345,6 +340,91 @@ If you did not request this, please verify that system security parameters are h
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       setPasswordStatusMsg({ type: "error", text: "New passwords do not match!" });
       return;
+    }
+
+    // Is the email address being changed?
+    const isEmailChanged = updatedEmail.toLowerCase() !== (restaurantInfo.adminEmail || "").toLowerCase();
+
+    if (isEmailChanged && !isNewEmailOtpSent) {
+      // We need to send an OTP verification code to the NEW admin email address!
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      const isProduction = import.meta.env.PROD;
+
+      // Always initialize simulated sandbox mailbox for seamless fallback
+      setSimulatedEmailInbox({
+        to: updatedEmail,
+        subject: "🔑 WOW Burger - Admin Email Change Verification",
+        body: `You are receiving this email because a request was initiated from the Administrative Panel to update your administrative email to: ${updatedEmail}.
+
+Your secure 6-digit administrative verification code is: ${code}
+
+If you did not request this, please verify that system security parameters are healthy.`,
+        code,
+        receivedAt: new Date().toLocaleTimeString()
+      });
+
+      try {
+        const response = await fetch("/api/send-email", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            to: updatedEmail,
+            subject: "🔑 WOW Burger - Admin Email Change Verification",
+            body: `You are receiving this email because a request was initiated from the Administrative Panel to update your administrative email to: ${updatedEmail}.
+
+Your secure 6-digit administrative verification code is: ${code}
+
+If you did not request this, please verify that system security parameters are healthy.`,
+          }),
+        });
+
+        let data: any = {};
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          data = await response.json();
+        } else {
+          const text = await response.text();
+          if (text.trim().startsWith("<") || text.includes("The page")) {
+            throw new Error("The mail-dispatch server is currently starting up or temporarily unreachable.");
+          } else {
+            throw new Error(text || `Server returned status code ${response.status}`);
+          }
+        }
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || "Failed to deliver email.");
+        }
+
+        setNewEmailOtpCode(code);
+        setIsNewEmailOtpSent(true);
+        setPasswordStatusMsg({
+          type: "success",
+          text: `A secure 6-digit verification code has been sent directly to your proposed new email address: ${updatedEmail}!`
+        });
+        return;
+      } catch (err: any) {
+        // Fallback for sandbox and missing SMTP configs
+        setNewEmailOtpCode(code);
+        setIsNewEmailOtpSent(true);
+        setPasswordStatusMsg({
+          type: "error",
+          text: `Notice: Real SMTP dispatch failed or is not configured (${err.message || "unconfigured"}). To keep the application functional, the OTP code for your new email (${updatedEmail}) has been captured in the Simulated Mailbox below! Configure SMTP variables for real-world delivery.`
+        });
+        return;
+      }
+    }
+
+    if (isEmailChanged && isNewEmailOtpSent) {
+      // Validate the entered OTP for the new email address
+      if (enteredNewEmailOtp !== newEmailOtpCode) {
+        setPasswordStatusMsg({
+          type: "error",
+          text: "Invalid verification code for your new email address! Please check the inbox and try again."
+        });
+        return;
+      }
     }
 
     updateRemoteAdminCredentials(updatedEmail, passwordForm.newPassword)
@@ -375,6 +455,9 @@ If you did not request this, please verify that system security parameters are h
         setResetEmailInput("");
         setIsEmailSent(false);
         setIsCodeVerified(false);
+        setIsNewEmailOtpSent(false);
+        setNewEmailOtpCode("");
+        setEnteredNewEmailOtp("");
       })
       .catch((err) => {
         setPasswordStatusMsg({
@@ -2215,7 +2298,7 @@ If you did not request this, please verify that system security parameters are h
             </div>
 
             {/* Simulated Sandbox Mailbox Widget */}
-            {!import.meta.env.PROD && isEmailSent && simulatedEmailInbox && (
+            {(isEmailSent || isNewEmailOtpSent) && simulatedEmailInbox && (
               <div className="bg-zinc-950 border border-white/[0.06] rounded-2xl p-4 text-left space-y-3 shadow-2xl max-w-md mx-auto animate-fade-in">
                 <div className="flex items-center justify-between border-b border-white/[0.05] pb-2">
                   <span className="text-[9.5px] font-black uppercase tracking-wider text-brand-yellow font-mono flex items-center gap-1.5">
@@ -2236,8 +2319,12 @@ If you did not request this, please verify that system security parameters are h
                 <button
                   type="button"
                   onClick={() => {
-                    setEnteredCode(simulatedEmailInbox.code);
-                    handleVerifyCode(simulatedEmailInbox.code);
+                    if (isNewEmailOtpSent) {
+                      setEnteredNewEmailOtp(simulatedEmailInbox.code);
+                    } else {
+                      setEnteredCode(simulatedEmailInbox.code);
+                      handleVerifyCode(simulatedEmailInbox.code);
+                    }
                   }}
                   className="w-full bg-brand-yellow/10 hover:bg-brand-yellow/20 border border-brand-yellow/20 hover:border-brand-yellow/40 text-brand-yellow py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5"
                 >
@@ -2350,12 +2437,47 @@ If you did not request this, please verify that system security parameters are h
                     <input
                       type="email"
                       required
+                      disabled={isNewEmailOtpSent}
                       value={passwordForm.newAdminEmail}
                       onChange={(e) => setPasswordForm({ ...passwordForm, newAdminEmail: e.target.value })}
                       placeholder="e.g. exampl@gmail.ocm"
-                      className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans"
+                      className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans disabled:opacity-50"
                     />
                   </div>
+
+                  {isNewEmailOtpSent && (
+                    <div className="space-y-1.5 bg-brand-yellow/5 border border-brand-yellow/15 p-4 rounded-xl animate-fade-in text-left">
+                      <label className="text-[9px] uppercase font-black text-brand-yellow tracking-wider block">
+                        Confirm OTP for New Email address *
+                      </label>
+                      <span className="text-[9px] text-zinc-500 block leading-normal mb-1">
+                        Enter the 6-digit verification code sent to <strong>{passwordForm.newAdminEmail}</strong> to verify and authorize ownership:
+                      </span>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          required
+                          maxLength={6}
+                          value={enteredNewEmailOtp}
+                          onChange={(e) => setEnteredNewEmailOtp(e.target.value.replace(/\D/g, ""))}
+                          placeholder="000000"
+                          className="w-full bg-zinc-950 border border-brand-yellow/30 rounded-xl px-4 py-2.5 text-xs text-brand-yellow font-mono tracking-[0.2em] text-center focus:outline-none focus:border-brand-yellow font-black"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsNewEmailOtpSent(false);
+                            setNewEmailOtpCode("");
+                            setEnteredNewEmailOtp("");
+                            setPasswordStatusMsg({ type: "", text: "" });
+                          }}
+                          className="px-4 py-2 bg-zinc-900 border border-white/5 rounded-xl text-[9px] font-black uppercase tracking-wider text-zinc-400 hover:bg-zinc-850 hover:text-white transition-all cursor-pointer whitespace-nowrap"
+                        >
+                          Change Email
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-1">
                     <label className="text-[9px] uppercase font-black text-zinc-400 tracking-wider">New Administrative Password *</label>

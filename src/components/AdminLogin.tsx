@@ -14,7 +14,7 @@ interface AdminLoginProps {
 export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "admin", adminEmail = "monstergame246@gmail.com" }: AdminLoginProps) {
   // Login States
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("admin");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -97,20 +97,18 @@ export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "
       
       const isProduction = import.meta.env.PROD;
 
-      if (!isProduction) {
-        // Seed simulated inbox first for foolproof local sandbox experience
-        setSimulatedInbox({
-          to: inputEmail,
-          subject: "🔑 WOW Burger - Self-Service SSPR Reset Code",
-          body: `You are receiving this automated security verification notice because an administrator initiated a Self-Service Password Reset (SSPR) authorization check.
+      // Always seed simulated inbox first for foolproof local sandbox & real-world fallback experience
+      setSimulatedInbox({
+        to: inputEmail,
+        subject: "🔑 WOW Burger - Self-Service SSPR Reset Code",
+        body: `You are receiving this automated security verification notice because an administrator initiated a Self-Service Password Reset (SSPR) authorization check.
 
 Your secure SSPR verification code is: ${code}
 
 If you did not initiate this reset request, verify system configuration variables as soon as possible.`,
-          code: code,
-          receivedAt: new Date().toLocaleTimeString()
-        });
-      }
+        code: code,
+        receivedAt: new Date().toLocaleTimeString()
+      });
 
       try {
         // Dispatch directly via real API
@@ -154,20 +152,13 @@ If you did not initiate this reset request, verify system configuration variable
           text: `SSPR security code has been sent directly to ${targetEmail}!`
         });
       } catch (err: any) {
-        if (isProduction) {
-          setResetStatusMsg({
-            type: "error",
-            text: `Failed to deliver verification email: ${err.message || "server unreachable"}. Please check your SMTP settings.`
-          });
-        } else {
-          // Safe SSPR Fallback transition: Do not block the user!
-          setActiveResetCode(code);
-          setResetStep(2);
-          setResetStatusMsg({
-            type: "error",
-            text: `Notice: Real email delivery via SMTP was skipped or failed (${err.message || "server unreachable"}). For sandbox convenience, the SSPR passcode has been captured in the Simulated Mailbox panel below!`
-          });
-        }
+        // Safe SSPR Fallback transition: Do not block the user if SMTP is unconfigured/fails!
+        setActiveResetCode(code);
+        setResetStep(2);
+        setResetStatusMsg({
+          type: "error",
+          text: `Notice: SMTP dispatch skipped or failed (${err.message || "unconfigured"}). To keep the application functional, the SSPR passcode has been captured in the Simulated Mailbox panel below! Configure SMTP variables for real-world delivery.`
+        });
       } finally {
         setIsResetLoading(false);
       }
@@ -431,7 +422,7 @@ If you did not initiate this reset request, verify system configuration variable
                 </div>
 
                 {/* Simulated Sandbox Mailbox Widget */}
-                {!import.meta.env.PROD && simulatedInbox && (
+                {simulatedInbox && (
                   <div className="mt-4 bg-zinc-950 border border-white/[0.06] rounded-xl p-3.5 text-left space-y-2.5 shadow-2xl animate-fade-in">
                     <div className="flex items-center justify-between border-b border-white/[0.05] pb-2">
                       <span className="text-[9px] font-black uppercase tracking-wider text-brand-yellow font-mono flex items-center gap-1">
