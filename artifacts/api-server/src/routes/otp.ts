@@ -41,7 +41,18 @@ router.post("/otp/send", async (req, res) => {
     return;
   }
 
-  const code = createOtp(email);
+  const result = createOtp(email);
+
+  if (!result.ok) {
+    const retryAfterSec = Math.ceil(result.retryAfterMs / 1000);
+    res.status(429).setHeader("Retry-After", String(retryAfterSec)).json({
+      success: false,
+      message: `Please wait ${retryAfterSec} seconds before requesting another code.`,
+    });
+    return;
+  }
+
+  const code = result.code;
   const from =
     process.env.SMTP_FROM ||
     `"WOW Burger Security" <${process.env.SMTP_USER}>`;

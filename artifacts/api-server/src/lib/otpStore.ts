@@ -1,22 +1,41 @@
+import { randomInt } from "crypto";
+
 interface OtpEntry {
   code: string;
   expiresAt: number;
   attempts: number;
+  lastSentAt: number;
 }
 
 const MAX_ATTEMPTS = 5;
 const OTP_TTL_MS = 10 * 60 * 1000;
+const RESEND_COOLDOWN_MS = 60 * 1000;
 
 const store = new Map<string, OtpEntry>();
 
-export function createOtp(email: string): string {
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-  store.set(email.toLowerCase(), {
+export type CreateResult =
+  | { ok: true; code: string }
+  | { ok: false; reason: "cooldown"; retryAfterMs: number };
+
+export function createOtp(email: string): CreateResult {
+  const key = email.toLowerCase();
+  const existing = store.get(key);
+
+  if (existing) {
+    const msSinceLast = Date.now() - existing.lastSentAt;
+    if (msSinceLast < RESEND_COOLDOWN_MS) {
+      return { ok: false, reason: "cooldown", retryAfterMs: RESEND_COOLDOWN_MS - msSinceLast };
+    }
+  }
+
+  const code = randomInt(100000, 1000000).toString();
+  store.set(key, {
     code,
     expiresAt: Date.now() + OTP_TTL_MS,
     attempts: 0,
+    lastSentAt: Date.now(),
   });
-  return code;
+  return { ok: true, code };
 }
 
 export type VerifyResult =

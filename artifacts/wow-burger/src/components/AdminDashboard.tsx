@@ -2301,7 +2301,6 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
                       onClick={() => {
                         setIsEmailSent(false);
                         setEnteredCode("");
-                        setActiveGeneratedCode("");
                         setPasswordStatusMsg({ type: "", text: "" });
                       }}
                       className="w-1/2 bg-zinc-900 hover:bg-zinc-850 hover:text-white border border-white/5 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-zinc-400 transition-all cursor-pointer"
@@ -2366,7 +2365,6 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
                           type="button"
                           onClick={() => {
                             setIsNewEmailOtpSent(false);
-                            setNewEmailOtpCode("");
                             setEnteredNewEmailOtp("");
                             setPasswordStatusMsg({ type: "", text: "" });
                           }}
