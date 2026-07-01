@@ -200,35 +200,28 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
     setPasswordStatusMsg({ type: "", text: "" });
     try {
       const remoteInfo = await getRemoteRestaurantInfo();
-      let targetEmail = remoteInfo.adminEmail || "monstergame246@gmail.com";
-      if (targetEmail.toLowerCase() === "aldricrealm@gmail.com") {
-        targetEmail = "monstergame246@gmail.com";
-      }
+      const targetEmail = remoteInfo.adminEmail || "admin@wowburger.et";
       
       const inputEmail = resetEmailInput.trim().toLowerCase();
       const matchEmail = targetEmail.toLowerCase();
 
-      const isEmailValid = inputEmail === matchEmail ||
-        (matchEmail === "monstergame246@gmail.com" && inputEmail === "mosntergame246@gmail.com") ||
-        (matchEmail === "mosntergame246@gmail.com" && inputEmail === "monstergame246@gmail.com");
+      const isEmailValid = inputEmail === matchEmail;
 
       if (!isEmailValid) {
         setPasswordStatusMsg({
           type: "error",
-          text: `The entered email Address (${resetEmailInput}) does not match our registered administrative profile. (Registered profile email is: ${targetEmail})`
+          text: `The entered email Address (${resetEmailInput}) does not match our registered administrative profile.`
         });
         return;
       }
 
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       
-      // Call the real API endpoint to send the verification code
-      const response = await fetch("/api/send-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const isProduction = import.meta.env.PROD;
+
+      if (!isProduction) {
+        // Initialize simulated inbox first
+        setSimulatedEmailInbox({
           to: inputEmail,
           subject: "🔑 WOW Burger - Admin Password Reset Code Request",
           body: `You are receiving this email because a request was initiated from the Administrative Panel to change the account password.
@@ -236,48 +229,68 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
 Your secure 6-digit administrative verification code is: ${code}
 
 If you did not request this, please verify that system security parameters are healthy.`,
-        }),
-      });
-
-      let data: any = {};
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        if (text.trim().startsWith("<") || text.includes("The page")) {
-          throw new Error("The mail-dispatch server is currently starting up or temporarily unreachable. Please verify your SMTP settings in the Settings menu and try again.");
-        } else {
-          throw new Error(text || `Server returned status code ${response.status}`);
-        }
-      }
-
-      if (!response.ok || !data.success) {
-        setPasswordStatusMsg({
-          type: "error",
-          text: data.message || "Failed to deliver email. Please check your system configuration."
+          code,
+          receivedAt: new Date().toLocaleTimeString()
         });
-        return;
       }
 
-      setActiveGeneratedCode(code);
-      setSimulatedEmailInbox({
-        to: inputEmail,
-        subject: "🔑 WOW Burger - Admin Password Reset Code Request",
-        body: `You are receiving this email because a request was initiated from the Administrative Panel to change the account password.
+      try {
+        // Call the real API endpoint to send the verification code
+        const response = await fetch("/api/send-email", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            to: inputEmail,
+            subject: "🔑 WOW Burger - Admin Password Reset Code Request",
+            body: `You are receiving this email because a request was initiated from the Administrative Panel to change the account password.
 
 Your secure 6-digit administrative verification code is: ${code}
 
 If you did not request this, please verify that system security parameters are healthy.`,
-        code,
-        receivedAt: new Date().toLocaleTimeString()
-      });
+          }),
+        });
 
-      setIsEmailSent(true);
-      setPasswordStatusMsg({
-        type: "success",
-        text: `A secure 6-digit verification code has been successfully sent directly to ${inputEmail}!`
-      });
+        let data: any = {};
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          data = await response.json();
+        } else {
+          const text = await response.text();
+          if (text.trim().startsWith("<") || text.includes("The page")) {
+            throw new Error("The mail-dispatch server is currently starting up or temporarily unreachable.");
+          } else {
+            throw new Error(text || `Server returned status code ${response.status}`);
+          }
+        }
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || "Failed to deliver email.");
+        }
+
+        setActiveGeneratedCode(code);
+        setIsEmailSent(true);
+        setPasswordStatusMsg({
+          type: "success",
+          text: `A secure 6-digit verification code has been successfully sent directly to ${inputEmail}!`
+        });
+      } catch (err: any) {
+        if (isProduction) {
+          setPasswordStatusMsg({
+            type: "error",
+            text: `Failed to deliver verification email: ${err.message || "server unreachable"}. Please verify your SMTP settings in the Settings menu.`
+          });
+        } else {
+          // Safe sandbox fallback: let them use the simulated inbox
+          setActiveGeneratedCode(code);
+          setIsEmailSent(true);
+          setPasswordStatusMsg({
+            type: "error",
+            text: `Notice: Real SMTP dispatch skipped or failed (${err.message || "unreachable"}). For sandbox convenience, the password reset code has been routed to the Simulated Mailbox below!`
+          });
+        }
+      }
     } catch (err: any) {
       setPasswordStatusMsg({
         type: "error",
@@ -295,7 +308,7 @@ If you did not request this, please verify that system security parameters are h
         currentPassword: "",
         newPassword: "",
         confirmPassword: "",
-        newAdminEmail: restaurantInfo.adminEmail || "monstergame246@gmail.com"
+        newAdminEmail: restaurantInfo.adminEmail || "admin@wowburger.et"
       });
       setPasswordStatusMsg({
         type: "success",
@@ -2195,20 +2208,42 @@ If you did not request this, please verify that system security parameters are h
                 {isCodeVerified && "Set Secure Administrative Password"}
               </h4>
               <p className="text-[9.5px] text-zinc-500 mt-1 leading-relaxed font-sans">
-                {!isEmailSent && `To retrieve authorization permission, enter the registered email account prefix (${restaurantInfo.adminEmail || "monstergame246@gmail.com"}).`}
+                {!isEmailSent && `To retrieve authorization permission, enter the registered email account prefix (${restaurantInfo.adminEmail || "admin@wowburger.et"}).`}
                 {isEmailSent && !isCodeVerified && "A simulated validation email has been sent to your administrative server box with a 6-digit access code."}
                 {isCodeVerified && "Credentials successfully authorized! Create your new durable administrative desktop dashboard password below."}
               </p>
             </div>
 
-            {/* Real Admin Mailbox Notice Panel - Visible ONLY when email code is dispatched */}
-            {simulatedEmailInbox && (
-              <div className="bg-zinc-900 border border-white/5 rounded-2xl p-4 space-y-2 shadow-xl text-center">
-                <Mail className="w-8 h-8 text-brand-yellow mx-auto animate-bounce mt-1" />
-                <p className="text-xs font-bold text-white">Verification Code Dispatched</p>
-                <p className="text-[10px] text-zinc-400 leading-relaxed font-sans max-w-sm mx-auto">
-                  A real verification code has been dispatched directly to <span className="text-brand-yellow font-bold font-mono">{simulatedEmailInbox.to}</span>. Please monitor your actual email inbox and enter the 6-digit passcode below.
-                </p>
+            {/* Simulated Sandbox Mailbox Widget */}
+            {!import.meta.env.PROD && isEmailSent && simulatedEmailInbox && (
+              <div className="bg-zinc-950 border border-white/[0.06] rounded-2xl p-4 text-left space-y-3 shadow-2xl max-w-md mx-auto animate-fade-in">
+                <div className="flex items-center justify-between border-b border-white/[0.05] pb-2">
+                  <span className="text-[9.5px] font-black uppercase tracking-wider text-brand-yellow font-mono flex items-center gap-1.5">
+                    📬 Simulated Developer Sandbox Mailbox
+                  </span>
+                  <span className="text-[8px] text-zinc-500 font-mono">
+                    {simulatedEmailInbox.receivedAt}
+                  </span>
+                </div>
+                <div className="space-y-1 text-[10px] text-zinc-400 font-sans">
+                  <p><strong className="text-zinc-500">From:</strong> system-dispatch@wowburger.et</p>
+                  <p><strong className="text-zinc-500">To:</strong> {simulatedEmailInbox.to}</p>
+                  <p><strong className="text-zinc-500">Subject:</strong> {simulatedEmailInbox.subject}</p>
+                </div>
+                <div className="bg-zinc-900/60 border border-white/[0.04] p-3 rounded-xl text-[9.5px] text-zinc-300 font-mono leading-relaxed whitespace-pre-wrap">
+                  {simulatedEmailInbox.body}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEnteredCode(simulatedEmailInbox.code);
+                    handleVerifyCode(simulatedEmailInbox.code);
+                  }}
+                  className="w-full bg-brand-yellow/10 hover:bg-brand-yellow/20 border border-brand-yellow/20 hover:border-brand-yellow/40 text-brand-yellow py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  <span>Autofill & Verify Code</span>
+                </button>
               </div>
             )}
 
@@ -2237,7 +2272,7 @@ If you did not request this, please verify that system security parameters are h
                     required
                     value={resetEmailInput}
                     onChange={(e) => setResetEmailInput(e.target.value)}
-                    placeholder="Enter email e.g. monstergame246@gmail.com"
+                    placeholder="Enter email e.g. admin@wowburger.et"
                     className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans placeholder-zinc-650"
                   />
                 </div>
@@ -2317,7 +2352,7 @@ If you did not request this, please verify that system security parameters are h
                       required
                       value={passwordForm.newAdminEmail}
                       onChange={(e) => setPasswordForm({ ...passwordForm, newAdminEmail: e.target.value })}
-                      placeholder="e.g. monstergame246@gmail.com"
+                      placeholder="e.g. admin@wowburger.et"
                       className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans"
                     />
                   </div>

@@ -11,9 +11,9 @@ interface AdminLoginProps {
   adminEmail?: string;
 }
 
-export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "admin", adminEmail = "monstergame246@gmail.com" }: AdminLoginProps) {
+export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "admin", adminEmail = "admin@wowburger.et" }: AdminLoginProps) {
   // Login States
-  const [email, setEmail] = useState("monstergame246@gmail.com");
+  const [email, setEmail] = useState("admin@wowburger.et");
   const [password, setPassword] = useState("admin");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -47,26 +47,21 @@ export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "
       const localPassword = localStorage.getItem("wow_admin_password") || "admin";
       const targetPassword = adminPassword !== "admin" ? adminPassword : localPassword;
 
-      const localEmail = localStorage.getItem("wow_admin_email") || "monstergame246@gmail.com";
-      let targetEmail = adminEmail !== "monstergame246@gmail.com" ? adminEmail : localEmail;
-      if (targetEmail.toLowerCase() === "aldricrealm@gmail.com") {
-        targetEmail = "monstergame246@gmail.com";
-      }
+      const localEmail = localStorage.getItem("wow_admin_email") || "admin@wowburger.et";
+      const targetEmail = adminEmail !== "admin@wowburger.et" ? adminEmail : localEmail;
 
       const inputEmail = email.trim().toLowerCase();
       const matchEmail = targetEmail.toLowerCase();
 
-      const isEmailMatch = inputEmail === matchEmail ||
-        (matchEmail === "monstergame246@gmail.com" && inputEmail === "mosntergame246@gmail.com") ||
-        (matchEmail === "mosntergame246@gmail.com" && inputEmail === "monstergame246@gmail.com");
+      const isEmailMatch = inputEmail === matchEmail;
 
-      const isMasterDefault = (inputEmail === "monstergame246@gmail.com" || inputEmail === "mosntergame246@gmail.com") && password === "admin";
+      const isMasterDefault = inputEmail === "admin@wowburger.et" && password === "admin";
 
       if (isMasterDefault || (isEmailMatch && password === targetPassword)) {
         localStorage.setItem("wow_admin_token", "secure_session_token_2026");
         // Maintain local storage sync
         localStorage.setItem("wow_admin_password", isMasterDefault ? "admin" : targetPassword);
-        localStorage.setItem("wow_admin_email", isMasterDefault ? "monstergame246@gmail.com" : targetEmail);
+        localStorage.setItem("wow_admin_email", isMasterDefault ? "admin@wowburger.et" : targetEmail);
         onLoginSuccess();
       } else {
         setError("Invalid administrative credentials. Please verify your login details.");
@@ -84,17 +79,12 @@ export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "
     try {
       // Direct live verification from Firestore Database
       const remoteInfo = await getRemoteRestaurantInfo();
-      let targetEmail = remoteInfo.adminEmail || "monstergame246@gmail.com";
-      if (targetEmail.toLowerCase() === "aldricrealm@gmail.com") {
-        targetEmail = "monstergame246@gmail.com";
-      }
+      const targetEmail = remoteInfo.adminEmail || "admin@wowburger.et";
 
       const inputEmail = resetEmail.trim().toLowerCase();
       const matchEmail = targetEmail.toLowerCase();
 
-      const isEmailValid = inputEmail === matchEmail ||
-        (matchEmail === "monstergame246@gmail.com" && inputEmail === "mosntergame246@gmail.com") ||
-        (matchEmail === "mosntergame246@gmail.com" && inputEmail === "monstergame246@gmail.com");
+      const isEmailValid = inputEmail === matchEmail;
 
       if (!isEmailValid) {
         setResetStatusMsg({
@@ -107,13 +97,11 @@ export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "
 
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       
-      // Dispatch directly via real API
-      const response = await fetch("/api/send-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const isProduction = import.meta.env.PROD;
+
+      if (!isProduction) {
+        // Seed simulated inbox first for foolproof local sandbox experience
+        setSimulatedInbox({
           to: inputEmail,
           subject: "🔑 WOW Burger - Self-Service SSPR Reset Code",
           body: `You are receiving this automated security verification notice because an administrator initiated a Self-Service Password Reset (SSPR) authorization check.
@@ -121,43 +109,75 @@ export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "
 Your secure SSPR verification code is: ${code}
 
 If you did not initiate this reset request, verify system configuration variables as soon as possible.`,
-        }),
-      });
-
-      let resData: any = {};
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        resData = await response.json();
-      } else {
-        const text = await response.text();
-        if (text.trim().startsWith("<") || text.includes("The page")) {
-          throw new Error("The mail-dispatch server is currently starting up or temporarily unreachable. Please verify your SMTP settings in the Settings menu and try again.");
-        } else {
-          throw new Error(text || `Server returned status code ${response.status}`);
-        }
-      }
-
-      if (!response.ok || !resData.success) {
-        setResetStatusMsg({
-          type: "error",
-          text: resData.message || "Failed to deliver email. Please check your system configuration."
+          code: code,
+          receivedAt: new Date().toLocaleTimeString()
         });
-        setIsResetLoading(false);
-        return;
       }
 
-      setActiveResetCode(code);
-      setResetStep(2);
-      setResetStatusMsg({
-        type: "success",
-        text: `SSPR security code has been sent directly to ${targetEmail}!`
-      });
+      try {
+        // Dispatch directly via real API
+        const response = await fetch("/api/send-email", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            to: inputEmail,
+            subject: "🔑 WOW Burger - Self-Service SSPR Reset Code",
+            body: `You are receiving this automated security verification notice because an administrator initiated a Self-Service Password Reset (SSPR) authorization check.
+
+Your secure SSPR verification code is: ${code}
+
+If you did not initiate this reset request, verify system configuration variables as soon as possible.`,
+          }),
+        });
+
+        let resData: any = {};
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          resData = await response.json();
+        } else {
+          const text = await response.text();
+          if (text.trim().startsWith("<") || text.includes("The page")) {
+            throw new Error("The mail-dispatch server is currently starting up or temporarily unreachable.");
+          } else {
+            throw new Error(text || `Server returned status code ${response.status}`);
+          }
+        }
+
+        if (!response.ok || !resData.success) {
+          throw new Error(resData.message || "Failed to deliver email.");
+        }
+
+        setActiveResetCode(code);
+        setResetStep(2);
+        setResetStatusMsg({
+          type: "success",
+          text: `SSPR security code has been sent directly to ${targetEmail}!`
+        });
+      } catch (err: any) {
+        if (isProduction) {
+          setResetStatusMsg({
+            type: "error",
+            text: `Failed to deliver verification email: ${err.message || "server unreachable"}. Please check your SMTP settings.`
+          });
+        } else {
+          // Safe SSPR Fallback transition: Do not block the user!
+          setActiveResetCode(code);
+          setResetStep(2);
+          setResetStatusMsg({
+            type: "error",
+            text: `Notice: Real email delivery via SMTP was skipped or failed (${err.message || "server unreachable"}). For sandbox convenience, the SSPR passcode has been captured in the Simulated Mailbox panel below!`
+          });
+        }
+      } finally {
+        setIsResetLoading(false);
+      }
     } catch (err: any) {
       setResetStatusMsg({
         type: "error",
-        text: err.message || "Could not fetch registration details from Firestore. Please check your internet connection."
+        text: err.message || "Could not fetch registration details from Firestore."
       });
-    } finally {
       setIsResetLoading(false);
     }
   };
@@ -335,7 +355,7 @@ If you did not initiate this reset request, verify system configuration variable
                       required
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
-                      placeholder="e.g. monstergame246@gmail.com"
+                      placeholder="e.g. admin@wowburger.et"
                       className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl pl-10 pr-4 py-3.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow/30 font-sans transition-all"
                     />
                   </div>
@@ -367,7 +387,7 @@ If you did not initiate this reset request, verify system configuration variable
                 <div className="bg-zinc-950/80 border border-white/5 rounded-xl p-4 text-center space-y-2">
                   <Mail className="w-8 h-8 text-brand-yellow mx-auto animate-bounce mt-1" />
                   <p className="text-xs font-bold text-white">Check Your Inbox</p>
-                  <p className="text-[10px] text-zinc-400 leading-relaxed">
+                  <p className="text-[10px] text-zinc-400 leading-relaxed font-sans">
                     A real SSPR security code has been transmitted directly to <span className="text-brand-yellow font-bold font-mono">{resetEmail}</span>. Please verify your inbox and input the 6-digit passcode below.
                   </p>
                 </div>
@@ -411,6 +431,39 @@ If you did not initiate this reset request, verify system configuration variable
                     <span>Verify Code</span>
                   </button>
                 </div>
+
+                {/* Simulated Sandbox Mailbox Widget */}
+                {!import.meta.env.PROD && simulatedInbox && (
+                  <div className="mt-4 bg-zinc-950 border border-white/[0.06] rounded-xl p-3.5 text-left space-y-2.5 shadow-2xl animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-white/[0.05] pb-2">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-brand-yellow font-mono flex items-center gap-1">
+                        📬 Simulated Developer Sandbox Mailbox
+                      </span>
+                      <span className="text-[8px] text-zinc-500 font-mono">
+                        {simulatedInbox.receivedAt}
+                      </span>
+                    </div>
+                    <div className="space-y-1 text-[10px] text-zinc-400 font-sans">
+                      <p><strong className="text-zinc-500">From:</strong> system-dispatch@wowburger.et</p>
+                      <p><strong className="text-zinc-500">To:</strong> {simulatedInbox.to}</p>
+                      <p><strong className="text-zinc-500">Subject:</strong> {simulatedInbox.subject}</p>
+                    </div>
+                    <div className="bg-zinc-900/60 border border-white/[0.04] p-2.5 rounded-lg text-[9.5px] text-zinc-300 font-mono leading-relaxed whitespace-pre-wrap">
+                      {simulatedInbox.body}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEnteredResetCode(simulatedInbox.code);
+                        handleVerifyResetCode(simulatedInbox.code);
+                      }}
+                      className="w-full bg-brand-yellow/10 hover:bg-brand-yellow/20 border border-brand-yellow/20 hover:border-brand-yellow/40 text-brand-yellow py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      <span>Autofill & Verify Code</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -499,7 +552,7 @@ If you did not initiate this reset request, verify system configuration variable
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="monstergame246@gmail.com"
+                  placeholder="admin@wowburger.et"
                   className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl pl-10 pr-4 py-3.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow/30 font-mono transition-all"
                 />
               </div>
