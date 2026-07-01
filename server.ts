@@ -33,7 +33,7 @@ async function startServer() {
     // Guard to check if SMTP settings are configured
     if (!smtpUser || !smtpPass) {
       console.warn("SMTP credentials are not configured in environment variables.");
-      return res.status(503).json({
+      return res.status(200).json({
         success: false,
         message: "SMTP settings not configured! Please configure SMTP_USER and SMTP_PASS in the AI Studio Settings menu to send real emails directly."
       });
@@ -65,7 +65,7 @@ async function startServer() {
       });
     } catch (error: any) {
       console.error("Nodemailer error:", error);
-      return res.status(500).json({ 
+      return res.status(200).json({ 
         success: false, 
         message: `Failed to dispatch email: ${error.message || error}` 
       });

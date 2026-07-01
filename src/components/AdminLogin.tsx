@@ -124,7 +124,18 @@ If you did not initiate this reset request, verify system configuration variable
         }),
       });
 
-      const resData = await response.json();
+      let resData: any = {};
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        resData = await response.json();
+      } else {
+        const text = await response.text();
+        if (text.trim().startsWith("<") || text.includes("The page")) {
+          throw new Error("The mail-dispatch server is currently starting up or temporarily unreachable. Please verify your SMTP settings in the Settings menu and try again.");
+        } else {
+          throw new Error(text || `Server returned status code ${response.status}`);
+        }
+      }
 
       if (!response.ok || !resData.success) {
         setResetStatusMsg({

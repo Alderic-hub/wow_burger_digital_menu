@@ -22,7 +22,7 @@ export const DEFAULT_RESTAURANT_INFO: RestaurantInfo = {
   locationName: "Bole Road Branch",
   locationAddress: "Bole Main Boulevard, Behind Edna Mall Complex, Addis Ababa, Ethiopia",
   phone: "+251 911 000 000",
-  email: "contact@wowburger.et",
+  email: "monstergame246@gmail.com",
   instagram: "https://instagram.com",
   facebook: "https://facebook.com",
   tiktok: "https://tiktok.com",

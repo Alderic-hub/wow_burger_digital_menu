@@ -239,7 +239,18 @@ If you did not request this, please verify that system security parameters are h
         }),
       });
 
-      const data = await response.json();
+      let data: any = {};
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+      } else {
+        const text = await response.text();
+        if (text.trim().startsWith("<") || text.includes("The page")) {
+          throw new Error("The mail-dispatch server is currently starting up or temporarily unreachable. Please verify your SMTP settings in the Settings menu and try again.");
+        } else {
+          throw new Error(text || `Server returned status code ${response.status}`);
+        }
+      }
 
       if (!response.ok || !data.success) {
         setPasswordStatusMsg({
@@ -2306,7 +2317,7 @@ If you did not request this, please verify that system security parameters are h
                       required
                       value={passwordForm.newAdminEmail}
                       onChange={(e) => setPasswordForm({ ...passwordForm, newAdminEmail: e.target.value })}
-                      placeholder="e.g. manager@wowburger.et"
+                      placeholder="e.g. monstergame246@gmail.com"
                       className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-brand-yellow font-sans"
                     />
                   </div>
