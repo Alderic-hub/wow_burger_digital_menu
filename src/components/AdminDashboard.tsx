@@ -59,16 +59,9 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
   });
   const [passwordStatusMsg, setPasswordStatusMsg] = useState({ type: "", text: "" });
 
-  // Security Reset Email Simulation States
+  // Security Reset Email States
   const [activeGeneratedCode, setActiveGeneratedCode] = useState<string>("");
   const [enteredCode, setEnteredCode] = useState<string>("");
-  const [simulatedEmailInbox, setSimulatedEmailInbox] = useState<{
-    to: string;
-    subject: string;
-    body: string;
-    code: string;
-    receivedAt: string;
-  } | null>(null);
 
   const [resetEmailInput, setResetEmailInput] = useState("");
   const [isEmailSent, setIsEmailSent] = useState(false);
@@ -220,21 +213,6 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
       }
 
       const code = Math.floor(100000 + Math.random() * 900000).toString();
-      
-      const isProduction = import.meta.env.PROD;
-
-      // Always initialize simulated inbox for resilient fallback
-      setSimulatedEmailInbox({
-        to: inputEmail,
-        subject: "🔑 WOW Burger - Admin Password Reset Code Request",
-        body: `You are receiving this email because a request was initiated from the Administrative Panel to change the account password.
-
-Your secure 6-digit administrative verification code is: ${code}
-
-If you did not request this, please verify that system security parameters are healthy.`,
-        code,
-        receivedAt: new Date().toLocaleTimeString()
-      });
 
       try {
         // Call the real API endpoint to send the verification code
@@ -278,12 +256,9 @@ If you did not request this, please verify that system security parameters are h
           text: `A secure 6-digit verification code has been successfully sent directly to ${inputEmail}!`
         });
       } catch (err: any) {
-        // Safe sandbox fallback: let them use the simulated inbox even if SMTP is unconfigured/fails
-        setActiveGeneratedCode(code);
-        setIsEmailSent(true);
         setPasswordStatusMsg({
           type: "error",
-          text: `Notice: SMTP dispatch skipped or failed (${err.message || "unconfigured"}). To keep the application functional, the password reset code has been routed to the Simulated Sandbox Mailbox below! Configure SMTP variables for real-world delivery.`
+          text: `Failed to deliver verification email: ${err.message || "server unreachable"}. Please verify your SMTP settings in the Settings menu.`
         });
       }
     } catch (err: any) {
@@ -348,20 +323,6 @@ If you did not request this, please verify that system security parameters are h
     if (isEmailChanged && !isNewEmailOtpSent) {
       // We need to send an OTP verification code to the NEW admin email address!
       const code = Math.floor(100000 + Math.random() * 900000).toString();
-      const isProduction = import.meta.env.PROD;
-
-      // Always initialize simulated sandbox mailbox for seamless fallback
-      setSimulatedEmailInbox({
-        to: updatedEmail,
-        subject: "🔑 WOW Burger - Admin Email Change Verification",
-        body: `You are receiving this email because a request was initiated from the Administrative Panel to update your administrative email to: ${updatedEmail}.
-
-Your secure 6-digit administrative verification code is: ${code}
-
-If you did not request this, please verify that system security parameters are healthy.`,
-        code,
-        receivedAt: new Date().toLocaleTimeString()
-      });
 
       try {
         const response = await fetch("/api/send-email", {
@@ -405,12 +366,9 @@ If you did not request this, please verify that system security parameters are h
         });
         return;
       } catch (err: any) {
-        // Fallback for sandbox and missing SMTP configs
-        setNewEmailOtpCode(code);
-        setIsNewEmailOtpSent(true);
         setPasswordStatusMsg({
           type: "error",
-          text: `Notice: Real SMTP dispatch failed or is not configured (${err.message || "unconfigured"}). To keep the application functional, the OTP code for your new email (${updatedEmail}) has been captured in the Simulated Mailbox below! Configure SMTP variables for real-world delivery.`
+          text: `Failed to deliver verification email to ${updatedEmail}: ${err.message || "server unreachable"}. Please verify your SMTP settings in the Settings menu.`
         });
         return;
       }
@@ -451,7 +409,6 @@ If you did not request this, please verify that system security parameters are h
         setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "", newAdminEmail: "" });
         setEnteredCode("");
         setActiveGeneratedCode("");
-        setSimulatedEmailInbox(null);
         setResetEmailInput("");
         setIsEmailSent(false);
         setIsCodeVerified(false);
@@ -2292,47 +2249,10 @@ If you did not request this, please verify that system security parameters are h
               </h4>
               <p className="text-[9.5px] text-zinc-500 mt-1 leading-relaxed font-sans">
                 {!isEmailSent && `To retrieve authorization permission, enter the registered email account prefix (${restaurantInfo.adminEmail || "monstergame246@gmail.com"}).`}
-                {isEmailSent && !isCodeVerified && "A simulated validation email has been sent to your administrative server box with a 6-digit access code."}
+                {isEmailSent && !isCodeVerified && "A validation email has been sent to your administrative registered email with a 6-digit access code."}
                 {isCodeVerified && "Credentials successfully authorized! Create your new durable administrative desktop dashboard password below."}
               </p>
             </div>
-
-            {/* Simulated Sandbox Mailbox Widget */}
-            {(isEmailSent || isNewEmailOtpSent) && simulatedEmailInbox && (
-              <div className="bg-zinc-950 border border-white/[0.06] rounded-2xl p-4 text-left space-y-3 shadow-2xl max-w-md mx-auto animate-fade-in">
-                <div className="flex items-center justify-between border-b border-white/[0.05] pb-2">
-                  <span className="text-[9.5px] font-black uppercase tracking-wider text-brand-yellow font-mono flex items-center gap-1.5">
-                    📬 Simulated Developer Sandbox Mailbox
-                  </span>
-                  <span className="text-[8px] text-zinc-500 font-mono">
-                    {simulatedEmailInbox.receivedAt}
-                  </span>
-                </div>
-                <div className="space-y-1 text-[10px] text-zinc-400 font-sans">
-                  <p><strong className="text-zinc-500">From:</strong> system-dispatch@wowburger.et</p>
-                  <p><strong className="text-zinc-500">To:</strong> {simulatedEmailInbox.to}</p>
-                  <p><strong className="text-zinc-500">Subject:</strong> {simulatedEmailInbox.subject}</p>
-                </div>
-                <div className="bg-zinc-900/60 border border-white/[0.04] p-3 rounded-xl text-[9.5px] text-zinc-300 font-mono leading-relaxed whitespace-pre-wrap">
-                  {simulatedEmailInbox.body}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (isNewEmailOtpSent) {
-                      setEnteredNewEmailOtp(simulatedEmailInbox.code);
-                    } else {
-                      setEnteredCode(simulatedEmailInbox.code);
-                      handleVerifyCode(simulatedEmailInbox.code);
-                    }
-                  }}
-                  className="w-full bg-brand-yellow/10 hover:bg-brand-yellow/20 border border-brand-yellow/20 hover:border-brand-yellow/40 text-brand-yellow py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  <span>Autofill & Verify Code</span>
-                </button>
-              </div>
-            )}
 
             {/* Error & Success Alerts message */}
             {passwordStatusMsg.text && (
@@ -2402,7 +2322,6 @@ If you did not request this, please verify that system security parameters are h
                         setIsEmailSent(false);
                         setEnteredCode("");
                         setActiveGeneratedCode("");
-                        setSimulatedEmailInbox(null);
                         setPasswordStatusMsg({ type: "", text: "" });
                       }}
                       className="w-1/2 bg-zinc-900 hover:bg-zinc-850 hover:text-white border border-white/5 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-zinc-400 transition-all cursor-pointer"

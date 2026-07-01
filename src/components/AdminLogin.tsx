@@ -28,13 +28,6 @@ export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [resetStatusMsg, setResetStatusMsg] = useState({ type: "", text: "" });
   const [isResetLoading, setIsResetLoading] = useState(false);
-  const [simulatedInbox, setSimulatedInbox] = useState<{
-    to: string;
-    subject: string;
-    body: string;
-    code: string;
-    receivedAt: string;
-  } | null>(null);
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,21 +87,6 @@ export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "
       }
 
       const code = Math.floor(100000 + Math.random() * 900000).toString();
-      
-      const isProduction = import.meta.env.PROD;
-
-      // Always seed simulated inbox first for foolproof local sandbox & real-world fallback experience
-      setSimulatedInbox({
-        to: inputEmail,
-        subject: "🔑 WOW Burger - Self-Service SSPR Reset Code",
-        body: `You are receiving this automated security verification notice because an administrator initiated a Self-Service Password Reset (SSPR) authorization check.
-
-Your secure SSPR verification code is: ${code}
-
-If you did not initiate this reset request, verify system configuration variables as soon as possible.`,
-        code: code,
-        receivedAt: new Date().toLocaleTimeString()
-      });
 
       try {
         // Dispatch directly via real API
@@ -152,12 +130,9 @@ If you did not initiate this reset request, verify system configuration variable
           text: `SSPR security code has been sent directly to ${targetEmail}!`
         });
       } catch (err: any) {
-        // Safe SSPR Fallback transition: Do not block the user if SMTP is unconfigured/fails!
-        setActiveResetCode(code);
-        setResetStep(2);
         setResetStatusMsg({
           type: "error",
-          text: `Notice: SMTP dispatch skipped or failed (${err.message || "unconfigured"}). To keep the application functional, the SSPR passcode has been captured in the Simulated Mailbox panel below! Configure SMTP variables for real-world delivery.`
+          text: `Failed to deliver verification email: ${err.message || "server unreachable"}. Please check your SMTP settings.`
         });
       } finally {
         setIsResetLoading(false);
@@ -233,7 +208,6 @@ If you did not initiate this reset request, verify system configuration variable
         setEnteredResetCode("");
         setNewPassword("");
         setConfirmNewPassword("");
-        setSimulatedInbox(null);
         setResetStatusMsg({ type: "", text: "" });
       }, 2000);
 
@@ -255,7 +229,6 @@ If you did not initiate this reset request, verify system configuration variable
     setEnteredResetCode("");
     setNewPassword("");
     setConfirmNewPassword("");
-    setSimulatedInbox(null);
     setResetStatusMsg({ type: "", text: "" });
   };
 
@@ -401,7 +374,6 @@ If you did not initiate this reset request, verify system configuration variable
                     type="button"
                     onClick={() => {
                       setResetStep(1);
-                      setSimulatedInbox(null);
                       setEnteredResetCode("");
                       setActiveResetCode("");
                       setResetStatusMsg({ type: "", text: "" });
@@ -420,39 +392,6 @@ If you did not initiate this reset request, verify system configuration variable
                     <span>Verify Code</span>
                   </button>
                 </div>
-
-                {/* Simulated Sandbox Mailbox Widget */}
-                {simulatedInbox && (
-                  <div className="mt-4 bg-zinc-950 border border-white/[0.06] rounded-xl p-3.5 text-left space-y-2.5 shadow-2xl animate-fade-in">
-                    <div className="flex items-center justify-between border-b border-white/[0.05] pb-2">
-                      <span className="text-[9px] font-black uppercase tracking-wider text-brand-yellow font-mono flex items-center gap-1">
-                        📬 Simulated Developer Sandbox Mailbox
-                      </span>
-                      <span className="text-[8px] text-zinc-500 font-mono">
-                        {simulatedInbox.receivedAt}
-                      </span>
-                    </div>
-                    <div className="space-y-1 text-[10px] text-zinc-400 font-sans">
-                      <p><strong className="text-zinc-500">From:</strong> system-dispatch@wowburger.et</p>
-                      <p><strong className="text-zinc-500">To:</strong> {simulatedInbox.to}</p>
-                      <p><strong className="text-zinc-500">Subject:</strong> {simulatedInbox.subject}</p>
-                    </div>
-                    <div className="bg-zinc-900/60 border border-white/[0.04] p-2.5 rounded-lg text-[9.5px] text-zinc-300 font-mono leading-relaxed whitespace-pre-wrap">
-                      {simulatedInbox.body}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEnteredResetCode(simulatedInbox.code);
-                        handleVerifyResetCode(simulatedInbox.code);
-                      }}
-                      className="w-full bg-brand-yellow/10 hover:bg-brand-yellow/20 border border-brand-yellow/20 hover:border-brand-yellow/40 text-brand-yellow py-2.5 rounded-lg text-[9px] font-bold uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      <span>Autofill & Verify Code</span>
-                    </button>
-                  </div>
-                )}
               </div>
             )}
 
