@@ -22,7 +22,6 @@ export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "
   const [isResetMode, setIsResetMode] = useState(false);
   const [resetStep, setResetStep] = useState<1 | 2 | 3>(1);
   const [resetEmail, setResetEmail] = useState("");
-  const [activeResetCode, setActiveResetCode] = useState("");
   const [enteredResetCode, setEnteredResetCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
@@ -34,9 +33,7 @@ export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "
     setIsLoading(true);
     setError("");
 
-    // Simulate authenticating session
     setTimeout(() => {
-      // Prioritize live adminEmail and adminPassword, fallback to localStorage option, finally defaulting
       const localPassword = localStorage.getItem("wow_admin_password") || "admin";
       const targetPassword = adminPassword !== "admin" ? adminPassword : localPassword;
 
@@ -50,7 +47,6 @@ export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "
 
       if (isEmailMatch && password === targetPassword) {
         localStorage.setItem("wow_admin_token", "secure_session_token_2026");
-        // Maintain local storage sync
         localStorage.setItem("wow_admin_password", targetPassword);
         localStorage.setItem("wow_admin_email", targetEmail);
         onLoginSuccess();
@@ -61,106 +57,102 @@ export default function AdminLogin({ onLoginSuccess, onGoHome, adminPassword = "
     }, 600);
   };
 
-  // SSPR Handlers
+  // SSPR Step 1: Verify email against Firestore, then ask backend to generate & send OTP
   const handleSendResetCode = async (e: React.FormEvent) => {
     e.preventDefault();
     setResetStatusMsg({ type: "", text: "" });
     setIsResetLoading(true);
 
     try {
-      // Direct live verification from Firestore Database
+      // Verify email matches the registered admin email in Firestore
       const remoteInfo = await getRemoteRestaurantInfo();
       const targetEmail = remoteInfo.adminEmail || adminEmail || "monstergame246@gmail.com";
 
       const inputEmail = resetEmail.trim().toLowerCase();
       const matchEmail = targetEmail.toLowerCase();
 
-      const isEmailValid = inputEmail === matchEmail;
-
-      if (!isEmailValid) {
+      if (inputEmail !== matchEmail) {
         setResetStatusMsg({
           type: "error",
-          text: `The entered email Address (${resetEmail}) does not match our registered administrative profile. (Registered profile email is: ${targetEmail})`
+          text: `The entered email does not match our registered administrative profile.`
         });
         setIsResetLoading(false);
         return;
       }
 
-      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      // Ask the backend to generate the OTP and send it — code never touches the browser
+      const response = await fetch("/api/otp/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inputEmail }),
+      });
 
-      try {
-        // Dispatch directly via real API
-        const response = await fetch("/api/send-email", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            to: inputEmail,
-            subject: "🔑 WOW Burger - Self-Service SSPR Reset Code",
-            body: `You are receiving this automated security verification notice because an administrator initiated a Self-Service Password Reset (SSPR) authorization check.
-
-Your secure SSPR verification code is: ${code}
-
-If you did not initiate this reset request, verify system configuration variables as soon as possible.`,
-          }),
-        });
-
-        let resData: any = {};
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          resData = await response.json();
-        } else {
-          const text = await response.text();
-          if (text.trim().startsWith("<") || text.includes("The page")) {
-            throw new Error("The mail-dispatch server is currently starting up or temporarily unreachable.");
-          } else {
-            throw new Error(text || `Server returned status code ${response.status}`);
-          }
-        }
-
-        if (!response.ok || !resData.success) {
-          throw new Error(resData.message || "Failed to deliver email.");
-        }
-
-        setActiveResetCode(code);
-        setResetStep(2);
-        setResetStatusMsg({
-          type: "success",
-          text: `SSPR security code has been sent directly to ${targetEmail}!`
-        });
-      } catch (err: any) {
-        setResetStatusMsg({
-          type: "error",
-          text: `Failed to deliver verification email: ${err.message || "server unreachable"}. Please check your SMTP settings.`
-        });
-      } finally {
-        setIsResetLoading(false);
+      let resData: { success: boolean; message: string } = { success: false, message: "Unknown error" };
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        resData = await response.json();
+      } else {
+        const text = await response.text();
+        throw new Error(text || `Server error ${response.status}`);
       }
-    } catch (err: any) {
+
+      if (!resData.success) {
+        throw new Error(resData.message);
+      }
+
+      setResetStep(2);
+      setResetStatusMsg({
+        type: "success",
+        text: `Verification code sent to ${targetEmail}. It expires in 10 minutes.`
+      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
       setResetStatusMsg({
         type: "error",
-        text: err.message || "Could not fetch registration details from Firestore."
+        text: `Failed to send verification code: ${msg}`
       });
+    } finally {
       setIsResetLoading(false);
     }
   };
 
-  const handleVerifyResetCode = (codeToVerify?: string) => {
+  // SSPR Step 2: Send code to backend for verification — OTP is never in frontend state
+  const handleVerifyResetCode = async () => {
     setResetStatusMsg({ type: "", text: "" });
-    const code = codeToVerify || enteredResetCode;
 
-    if (code === activeResetCode && activeResetCode !== "") {
+    if (enteredResetCode.length !== 6) return;
+
+    setIsResetLoading(true);
+    try {
+      const response = await fetch("/api/otp/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: resetEmail.trim().toLowerCase(), code: enteredResetCode }),
+      });
+
+      let resData: { success: boolean; message: string } = { success: false, message: "Unknown error" };
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        resData = await response.json();
+      } else {
+        throw new Error(`Server error ${response.status}`);
+      }
+
+      if (!resData.success) {
+        setResetStatusMsg({ type: "error", text: resData.message });
+        return;
+      }
+
       setResetStep(3);
       setResetStatusMsg({
         type: "success",
-        text: "Code validation successful! Choose a secure administrative password below."
+        text: "Code verified! Choose a new password below."
       });
-    } else {
-      setResetStatusMsg({
-        type: "error",
-        text: "Invalid security code! Please double-check the code sent to your email inbox."
-      });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setResetStatusMsg({ type: "error", text: `Verification failed: ${msg}` });
+    } finally {
+      setIsResetLoading(false);
     }
   };
 
@@ -169,42 +161,32 @@ If you did not initiate this reset request, verify system configuration variable
     setResetStatusMsg({ type: "", text: "" });
 
     if (newPassword.length < 4) {
-      setResetStatusMsg({
-        type: "error",
-        text: "New password must be at least 4 characters long."
-      });
+      setResetStatusMsg({ type: "error", text: "New password must be at least 4 characters long." });
       return;
     }
 
     if (newPassword !== confirmNewPassword) {
-      setResetStatusMsg({
-        type: "error",
-        text: "Passwords do not match!"
-      });
+      setResetStatusMsg({ type: "error", text: "Passwords do not match!" });
       return;
     }
 
     setIsResetLoading(true);
     try {
-      // Direct writing to live Firestore database
       await updateRemoteAdminCredentials(resetEmail.trim(), newPassword);
       
       setResetStatusMsg({
         type: "success",
-        text: "Password reset completed successfully in database! Please login using your updated credentials."
+        text: "Password reset successfully! Redirecting to login..."
       });
 
-      // Update local login fields for frictionless transition
       setEmail(resetEmail.trim());
       setPassword(newPassword);
       setError("");
 
-      // Return to login mode after short lag
       setTimeout(() => {
         setIsResetMode(false);
         setResetStep(1);
         setResetEmail("");
-        setActiveResetCode("");
         setEnteredResetCode("");
         setNewPassword("");
         setConfirmNewPassword("");
@@ -214,7 +196,7 @@ If you did not initiate this reset request, verify system configuration variable
     } catch (err) {
       setResetStatusMsg({
         type: "error",
-        text: "Failed to persist credentials in database. Please check rules configuration."
+        text: "Failed to save new password to database. Please try again."
       });
     } finally {
       setIsResetLoading(false);
@@ -225,7 +207,6 @@ If you did not initiate this reset request, verify system configuration variable
     setIsResetMode(false);
     setResetStep(1);
     setResetEmail("");
-    setActiveResetCode("");
     setEnteredResetCode("");
     setNewPassword("");
     setConfirmNewPassword("");
@@ -278,14 +259,14 @@ If you did not initiate this reset request, verify system configuration variable
             {/* SSPR Step Header */}
             <div className="bg-zinc-950/80 border border-white/[0.03] rounded-xl p-3.5 text-center">
               <span className="text-[9px] text-brand-yellow font-black uppercase tracking-wider font-mono">
-                {resetStep === 1 && "Step 1 of 3: Registered Profile Verification"}
-                {resetStep === 2 && "Step 2 of 3: Verification Identity Authentication"}
-                {resetStep === 3 && "Step 3 of 3: Configure Durable Password"}
+                {resetStep === 1 && "Step 1 of 3: Verify Your Admin Email"}
+                {resetStep === 2 && "Step 2 of 3: Enter Verification Code"}
+                {resetStep === 3 && "Step 3 of 3: Set New Password"}
               </span>
               <p className="text-[10px] text-zinc-400 mt-0.5 leading-relaxed">
-                {resetStep === 1 && "Enter your primary recovery address to receive an authorization token."}
-                {resetStep === 2 && "Complete verification utilizing the dispatch code provided below."}
-                {resetStep === 3 && "Update your security credentials permanently in the cloud."}
+                {resetStep === 1 && "Enter your registered admin email. A one-time code will be sent to it."}
+                {resetStep === 2 && "Check your inbox and enter the 6-digit code we sent you."}
+                {resetStep === 3 && "Choose a new secure password for your admin account."}
               </p>
             </div>
 
@@ -317,7 +298,7 @@ If you did not initiate this reset request, verify system configuration variable
                       required
                       value={resetEmail}
                       onChange={(e) => setResetEmail(e.target.value)}
-                      placeholder="e.g. exampl@gmail.ocm"
+                      placeholder="your-admin@email.com"
                       className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl pl-10 pr-4 py-3.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow/30 font-sans transition-all"
                     />
                   </div>
@@ -331,11 +312,11 @@ If you did not initiate this reset request, verify system configuration variable
                   {isResetLoading ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Verifying Database...</span>
+                      <span>Sending Code...</span>
                     </>
                   ) : (
                     <>
-                      <span>Generate SSPR Code</span>
+                      <span>Send Verification Code</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </>
                   )}
@@ -343,14 +324,16 @@ If you did not initiate this reset request, verify system configuration variable
               </form>
             )}
 
-            {/* SSPR STEP 2: VERIFICATION INPUT FORM */}
+            {/* SSPR STEP 2: ENTER OTP */}
             {resetStep === 2 && (
               <div className="space-y-4">
                 <div className="bg-zinc-950/80 border border-white/5 rounded-xl p-4 text-center space-y-2">
                   <Mail className="w-8 h-8 text-brand-yellow mx-auto animate-bounce mt-1" />
                   <p className="text-xs font-bold text-white">Check Your Inbox</p>
                   <p className="text-[10px] text-zinc-400 leading-relaxed font-sans">
-                    A real SSPR security code has been transmitted directly to <span className="text-brand-yellow font-bold font-mono">{resetEmail}</span>. Please verify your inbox and input the 6-digit passcode below.
+                    A 6-digit verification code was sent to{" "}
+                    <span className="text-brand-yellow font-bold font-mono">{resetEmail}</span>.{" "}
+                    It expires in 10 minutes.
                   </p>
                 </div>
 
@@ -375,7 +358,6 @@ If you did not initiate this reset request, verify system configuration variable
                     onClick={() => {
                       setResetStep(1);
                       setEnteredResetCode("");
-                      setActiveResetCode("");
                       setResetStatusMsg({ type: "", text: "" });
                     }}
                     className="bg-neutral-900 hover:bg-neutral-850 border border-white/5 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest text-zinc-400 transition-all cursor-pointer"
@@ -384,12 +366,18 @@ If you did not initiate this reset request, verify system configuration variable
                   </button>
                   <button
                     type="button"
-                    disabled={enteredResetCode.length !== 6}
-                    onClick={() => handleVerifyResetCode()}
+                    disabled={enteredResetCode.length !== 6 || isResetLoading}
+                    onClick={handleVerifyResetCode}
                     className="bg-brand-yellow hover:bg-yellow-500 disabled:opacity-45 text-black py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-1 shadow-lg shadow-brand-yellow/10"
                   >
-                    <CheckCircle className="w-3.5 h-3.5 stroke-[2.5]" />
-                    <span>Verify Code</span>
+                    {isResetLoading ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <>
+                        <CheckCircle className="w-3.5 h-3.5 stroke-[2.5]" />
+                        <span>Verify Code</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -442,7 +430,7 @@ If you did not initiate this reset request, verify system configuration variable
                   {isResetLoading ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Updating Database...</span>
+                      <span>Saving...</span>
                     </>
                   ) : (
                     <>
@@ -480,7 +468,7 @@ If you did not initiate this reset request, verify system configuration variable
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="exampl@gmail.ocm"
+                  placeholder="your-admin@email.com"
                   className="w-full bg-zinc-950 border border-white/[0.08] rounded-xl pl-10 pr-4 py-3.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-brand-yellow focus:ring-1 focus:ring-brand-yellow/30 font-mono transition-all"
                 />
               </div>
@@ -501,7 +489,7 @@ If you did not initiate this reset request, verify system configuration variable
                   }}
                   className="text-[9px] font-extrabold uppercase tracking-wider text-brand-yellow hover:underline cursor-pointer"
                 >
-                  Forgot Password? (SSPR)
+                  Forgot Password?
                 </button>
               </div>
               <div className="relative">
@@ -528,10 +516,20 @@ If you did not initiate this reset request, verify system configuration variable
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-brand-yellow hover:bg-yellow-500 disabled:opacity-50 text-black font-black uppercase tracking-widest text-xs py-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer mt-4 active:scale-98 shadow-lg shadow-brand-yellow/10"
+              className="w-full bg-brand-red hover:bg-red-600 disabled:opacity-50 text-white font-black uppercase tracking-widest text-xs py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 shadow-lg shadow-brand-red/20 mt-2"
             >
-              <span>{isLoading ? "Authenticating..." : "Access Dashboard"}</span>
-              {!isLoading && <ArrowRight className="w-4 h-4 stroke-[2.5]" />}
+              {isLoading ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Authenticating...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Access Admin Portal</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </>
+              )}
             </button>
           </form>
         )}
