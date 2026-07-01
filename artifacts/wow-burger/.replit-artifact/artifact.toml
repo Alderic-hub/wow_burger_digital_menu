@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "WOW Burger"
+version = "1.0.0"
+id = "artifacts/wow-burger"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23006
+
+[services.development]
+run = "pnpm --filter @workspace/wow-burger run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/wow-burger", "run", "build" ]
+publicDir = "artifacts/wow-burger/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23006"
+BASE_PATH = "/"

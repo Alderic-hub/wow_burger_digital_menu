@@ -1,0 +1,1 @@
+- [WOW Burger Firebase config](wow-burger-firebase.md) — firebase-applet-config.json must live at artifact root, not inside src/
