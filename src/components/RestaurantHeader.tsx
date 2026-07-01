@@ -1,4 +1,4 @@
-import { Info, ArrowLeft, Landmark, Lock } from "lucide-react";
+import { Info, ArrowLeft, Landmark } from "lucide-react";
 // @ts-ignore
 import wowBurgerLogo from "../assets/images/wow_burger_logo_1781154696795.png";
 

@@ -172,12 +172,13 @@ export default function App() {
           setCurrentRoute("customer");
         }}
         onRefreshPublicData={handleRefreshPublicData}
+        restaurantInfo={restaurantInfo || undefined}
       />
     );
   }
 
   return (
-    <div className="h-screen w-screen bg-black flex items-center justify-center relative overflow-hidden text-white font-sans p-0 m-0">
+    <div className="h-screen w-full max-w-full bg-black flex items-center justify-center relative overflow-hidden text-white font-sans p-0 m-0">
       {/* Background Ambience Light Effect: Glowing red & yellow outer gradients */}
       <div className="absolute inset-0 opacity-25 pointer-events-none z-0">
         <div className="absolute top-[-100px] left-[-100px] w-[600px] h-[600px] bg-brand-red rounded-full blur-[180px]"></div>

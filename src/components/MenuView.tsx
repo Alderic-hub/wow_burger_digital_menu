@@ -457,7 +457,7 @@ export default function MenuView({
                       <div className="pt-2.5 md:pt-3.5 border-t border-white/[0.04] flex items-center justify-between text-[11px] md:text-xs lg:text-sm font-extrabold text-brand-yellow mt-1">
                         <span>{item.price.toFixed(2)} Br</span>
                         <span className="text-[8px] md:text-[9.5px] text-white/50 bg-white/[0.06] group-hover:bg-brand-yellow group-hover:text-black px-2 py-0.5 md:px-3 md:py-1 rounded-full uppercase tracking-wider font-extrabold transition-colors">
-                          Secrets ➔
+                          Details ➔
                         </span>
                       </div>
                     </div>
@@ -501,6 +501,7 @@ export default function MenuView({
                   onClick={() => onSelectItem(item)}
                   className="bg-zinc-950/70 border border-white/[0.04] hover:border-brand-yellow/35 rounded-2xl p-2.5 md:p-4 lg:p-4.5 flex flex-col justify-between gap-3 md:gap-4 transition-all duration-300 cursor-pointer group hover:bg-zinc-900/60 shadow-lg relative"
                 >
+                  {/* Image - Fully Dominant First Visual Asset */}
                   <div className="h-24 sm:h-28 md:h-44 lg:h-52 xl:h-56 w-full rounded-xl overflow-hidden relative shadow-inner">
                     <img
                       src={item.image}
@@ -510,11 +511,13 @@ export default function MenuView({
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/20" />
                     
+                    {/* Top rating */}
                     <span className="absolute bottom-2 right-2 text-[8px] md:text-[9.5px] bg-black/70 text-brand-yellow font-extrabold px-2 py-0.5 md:px-2.5 md:py-1 rounded-full flex items-center gap-0.5 border border-white/5">
                       ★ {item.rating || "4.8"}
                     </span>
                   </div>
 
+                  {/* Content Stack */}
                   <div className="space-y-1 md:space-y-1.5">
                     <h4 className="text-xs md:text-sm lg:text-base font-extrabold text-white tracking-tight line-clamp-1 group-hover:text-brand-yellow group-hover:underline transition-all uppercase">
                       {item.name}
@@ -524,10 +527,11 @@ export default function MenuView({
                     </p>
                   </div>
 
+                  {/* Pricing and secondary CTA */}
                   <div className="pt-2.5 md:pt-3.5 border-t border-white/[0.04] flex items-center justify-between text-[11px] md:text-xs lg:text-sm font-extrabold text-brand-yellow mt-1">
                     <span>{item.price.toFixed(2)} Br</span>
                     <span className="text-[8px] md:text-[9.5px] text-white/50 bg-white/[0.06] group-hover:bg-brand-yellow group-hover:text-black px-2 py-0.5 md:px-3 md:py-1 rounded-full uppercase tracking-wider font-extrabold transition-colors">
-                      Secrets ➔
+                      Details ➔
                     </span>
                   </div>
                 </div>
@@ -603,16 +607,6 @@ export default function MenuView({
                 <p className="text-[10px] text-zinc-500 font-medium text-center lg:text-left">
                   Designed & Developed by <span className="text-zinc-300 font-black hover:text-brand-yellow transition-colors">Aldric Labs</span>
                 </p>
-                <div className="pt-0.5">
-                  <button 
-                    onClick={() => {
-                      window.location.hash = "#/wow-burger-admin";
-                    }}
-                    className="text-[9px] text-zinc-600 hover:text-brand-yellow uppercase tracking-widest font-mono font-bold transition-all border border-transparent hover:border-white/[0.05] hover:bg-neutral-900/40 px-2.5 py-1 rounded-md cursor-pointer"
-                  >
-                    [ Admin Portal ]
-                  </button>
-                </div>
                 <p className="text-[8px] text-zinc-600 font-mono">© 2026 WOW Burger. All Rights Reserved.</p>
               </div>
             </div>

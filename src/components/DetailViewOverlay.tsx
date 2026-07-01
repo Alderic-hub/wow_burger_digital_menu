@@ -173,12 +173,12 @@ export default function DetailViewOverlay({
               </div>
 
               <div className="bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 rounded-2xl p-2.5 md:p-4 flex flex-col items-center justify-center text-center transition-colors">
-                <div className="flex items-center text-brand-yellow mb-1 gap-0.5 md:gap-1">
-                  <Star className="w-3.5 h-3.5 md:w-4 md:h-4 fill-current" />
-                  <span className="text-xs md:text-sm font-bold text-white ml-0.5">{item.rating || "4.8"}</span>
-                </div>
+                <Star className="w-4 h-4 md:w-5 md:h-5 text-brand-yellow mb-1 fill-current" />
                 <span className="text-[10px] md:text-xs text-gray-400 uppercase tracking-wider">Rating</span>
-                <span className="text-xs md:text-sm font-bold text-white mt-0.5">Chef Selection</span>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <span className="text-xs md:text-sm font-bold text-white">{item.rating || "4.8"}</span>
+                  <span className="text-xs text-white font-bold lowercase">stars</span>
+                </div>
               </div>
             </div>
 

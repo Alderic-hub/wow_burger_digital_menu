@@ -368,6 +368,38 @@ export async function saveRestaurantInfo(info: RestaurantInfo) {
   }
 }
 
+export async function getRemoteRestaurantInfo(): Promise<RestaurantInfo> {
+  try {
+    const docRef = doc(db, "restaurant", "info");
+    const snapshot = await getDoc(docRef);
+    if (snapshot.exists()) {
+      return snapshot.data() as RestaurantInfo;
+    }
+  } catch (err) {
+    console.warn("Error getting remote restaurant info:", err);
+  }
+  return loadRestaurantInfo();
+}
+
+export async function updateRemoteAdminCredentials(email: string, password: string): Promise<void> {
+  const docRef = doc(db, "restaurant", "info");
+  const localInfo = loadRestaurantInfo();
+  const updated = {
+    ...localInfo,
+    adminEmail: email,
+    adminPassword: password
+  };
+  localStorage.setItem("wow_restaurant_info", JSON.stringify(updated));
+  localStorage.setItem("wow_admin_email", email);
+  localStorage.setItem("wow_admin_password", password);
+  try {
+    await setDoc(docRef, updated, { merge: true });
+  } catch (err) {
+    console.error("Failed to update remote credentials:", err);
+    throw err;
+  }
+}
+
 export function loadEmployees(): Employee[] {
   initDB();
   try {
