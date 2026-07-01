@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Lock, Mail, ArrowRight, Sparkles, ArrowLeft, RefreshCw, X, CheckCircle, Key } from "lucide-react";
 import { getRemoteRestaurantInfo, updateRemoteAdminCredentials } from "../dbService";
 // @ts-ignore
@@ -48,6 +48,20 @@ export default function AdminLogin({
   const [confirmPassword, setConfirmPassword] = useState("");
   const [ssprMsg, setSsprMsg]         = useState({ type: "", text: "" });
   const [ssprLoading, setSsprLoading] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
+
+  // Start 60-second resend countdown whenever we enter step 2
+  useEffect(() => {
+    if (ssprStep !== 2) { setResendCountdown(0); return; }
+    setResendCountdown(60);
+    const id = setInterval(() => {
+      setResendCountdown((prev) => {
+        if (prev <= 1) { clearInterval(id); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [ssprStep]);
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -128,6 +142,24 @@ export default function AdminLogin({
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       setSsprMsg({ type: "error", text: `Failed to send code: ${msg}` });
+    } finally {
+      setSsprLoading(false);
+    }
+  }
+
+  // ── SSPR Resend — re-issue OTP without re-validating email ───────────────
+  async function handleResend() {
+    setSsprMsg({ type: "", text: "" });
+    setSsprLoading(true);
+    try {
+      const data = await apiPost("/api/otp/send", { email: ssprEmail.trim().toLowerCase() });
+      if (!data.success) throw new Error(data.message);
+      setEnteredCode("");
+      setResendCountdown(60);
+      setSsprMsg({ type: "success", text: "A new verification code has been sent to your inbox." });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setSsprMsg({ type: "error", text: `Resend failed: ${msg}` });
     } finally {
       setSsprLoading(false);
     }
@@ -314,6 +346,26 @@ export default function AdminLogin({
                     placeholder="000000"
                     className="w-full bg-zinc-950 border border-brand-yellow/35 rounded-xl py-3.5 text-center text-brand-yellow font-mono text-sm tracking-[0.6em] font-black focus:outline-none focus:border-brand-yellow"
                   />
+                </div>
+
+                {/* Resend code row */}
+                <div className="text-center">
+                  {resendCountdown > 0 ? (
+                    <p className="text-[10px] text-zinc-500 font-mono">
+                      Resend available in{" "}
+                      <span className="text-brand-yellow font-black tabular-nums">{resendCountdown}s</span>
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={ssprLoading}
+                      onClick={handleResend}
+                      className="text-[10px] font-black uppercase tracking-wider text-zinc-400 hover:text-brand-yellow disabled:opacity-50 transition-colors cursor-pointer flex items-center gap-1 mx-auto"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      Resend Code
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">

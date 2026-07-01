@@ -69,6 +69,7 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
   const [enteredNewEmailOtp, setEnteredNewEmailOtp] = useState("");
   const [isNewEmailOtpSent, setIsNewEmailOtpSent] = useState(false);
   const [isSettingsLoading, setIsSettingsLoading] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
 
   // Popular items curation search state & toggles
   const [popularSearch, setPopularSearch] = useState("");
@@ -191,6 +192,19 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
     }
   };
 
+  // Start 60-second resend countdown whenever settings step 2 is entered
+  useEffect(() => {
+    if (settingsStep !== 2) { setResendCountdown(0); return; }
+    setResendCountdown(60);
+    const id = setInterval(() => {
+      setResendCountdown((prev) => {
+        if (prev <= 1) { clearInterval(id); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [settingsStep]);
+
   // ── Helper: POST to an OTP endpoint, returns parsed JSON ────────────────
   async function otpPost(path: string, body: object): Promise<{ success: boolean; message: string }> {
     const res = await fetch(path, {
@@ -200,6 +214,23 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
     });
     try { return await res.json(); }
     catch { return { success: false, message: `Server error ${res.status}` }; }
+  }
+
+  // ── Resend OTP without re-validating email ───────────────────────────────
+  async function handleResendCode() {
+    setPasswordStatusMsg({ type: "", text: "" });
+    setIsSettingsLoading(true);
+    try {
+      const data = await otpPost("/api/otp/send", { email: resetEmailInput.trim().toLowerCase() });
+      if (!data.success) throw new Error(data.message);
+      setEnteredCode("");
+      setResendCountdown(60);
+      setPasswordStatusMsg({ type: "success", text: "A new verification code has been sent to your inbox." });
+    } catch (err: any) {
+      setPasswordStatusMsg({ type: "error", text: err.message || "Failed to resend code." });
+    } finally {
+      setIsSettingsLoading(false);
+    }
   }
 
   // ── Step 1: Verify the admin email then send OTP ─────────────────────────
@@ -2230,7 +2261,27 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
                     className="w-full bg-zinc-950 border border-brand-yellow/30 rounded-xl px-4 py-3 text-base text-brand-yellow focus:outline-none focus:border-brand-yellow font-mono text-center tracking-[0.5em] font-black"
                   />
 
-                  <div className="flex gap-2.5 pt-1">
+                  {/* Resend code row */}
+                  <div className="text-center pt-1">
+                    {resendCountdown > 0 ? (
+                      <p className="text-[10px] text-zinc-500 font-mono">
+                        Resend available in{" "}
+                        <span className="text-brand-yellow font-black tabular-nums">{resendCountdown}s</span>
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={isSettingsLoading}
+                        onClick={handleResendCode}
+                        className="text-[10px] font-black uppercase tracking-wider text-zinc-400 hover:text-brand-yellow disabled:opacity-50 transition-colors cursor-pointer flex items-center gap-1 mx-auto"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Resend Code
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2.5">
                     <button
                       type="button"
                       onClick={() => { setSettingsStep(1); setEnteredCode(""); setPasswordStatusMsg({ type: "", text: "" }); }}
