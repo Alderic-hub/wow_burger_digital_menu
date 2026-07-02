@@ -1,0 +1,27 @@
+I need to migrate an Express.js backend currently running 24/7 on Replit over to a Serverless environment on Vercel. This backend handles an OTP (One-Time Password) generation, sending, and verification flow. 
+
+To ensure nothing breaks during this serverless migration, please provide the exact steps, file architecture, configuration, and modified code based on the following requirements:
+
+1. ARCHITECTURE CHANGES:
+- Show me how to organize the root repository so the frontend assets and the backend API work together on Vercel.
+- Provide a `vercel.json` file configuration that correctly rewrites all `/api/(.*)` endpoints to a single serverless entry point (`/api/index.js`), preventing Vercel's static file server from throwing 405 errors on POST requests.
+
+2. STATE MANAGEMENT & SERVERLESS COMPLIANCE:
+- Do NOT use in-memory arrays or objects (like `const otps = {}`) to store OTP codes, as Vercel functions are stateless and reset constantly.
+- Refactor the code to use `@vercel/kv` (Redis) to store the OTP codes externally. 
+- Implement an automatic expiration (TTL) of 5 minutes (300 seconds) on the saved OTP keys so they automatically clean themselves up.
+
+3. CODE REFACTORING:
+- Convert the main Express server entry point to export the app module (`module.exports = app;`) instead of invoking `app.listen(PORT)`.
+- Provide the complete, robust code for two endpoints: 
+  - `POST /api/otp/send`: Generates a secure OTP, saves it to Vercel KV with a 5-minute expiration, and simulates/stubs the SMS sending logic.
+  - `POST /api/otp/verify`: Fetches the OTP from Vercel KV using the user's phone number/identifier, validates it, and returns an appropriate success or error response.
+
+4. ERROR HANDLING & EDGE CASES (PROOFS):
+Build defensive programming mechanisms into the code to gracefully handle and log the following failures:
+- Missing payload data (e.g., body missing a phone number or code).
+- Vercel KV connection timeouts or failures (wrap database calls in try/catch blocks).
+- Expired OTP lookups (handling cases where Vercel KV returns `null` because the 5-minute timer ran out).
+- Rate limiting protection (ensure a user cannot spam the `send` endpoint continuously).
+
+Please output the directory structure, the full contents of `vercel.json`, the full contents of `api/index.js`, and the exact `npm install` command needed for the dependencies.
