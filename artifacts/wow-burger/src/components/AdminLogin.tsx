@@ -13,10 +13,8 @@ interface AdminLoginProps {
 
 type SsprStep = 1 | 2 | 3;
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "";
-
 async function apiPost(path: string, body: object): Promise<{ success: boolean; message: string }> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(path, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

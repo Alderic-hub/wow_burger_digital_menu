@@ -207,8 +207,7 @@ export default function AdminDashboard({ onLogout, onRefreshPublicData, restaura
 
   // ── Helper: POST to an OTP endpoint, returns parsed JSON ────────────────
   async function otpPost(path: string, body: object): Promise<{ success: boolean; message: string }> {
-    const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "") ?? "";
-    const res = await fetch(`${apiBase}${path}`, {
+    const res = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
